@@ -1,0 +1,87 @@
+# ── Imagem única REDECOOP: API + 3 frontends (4 containers no compose) ──
+
+# ── API (NestJS) ──
+FROM node:20-alpine AS api-builder
+WORKDIR /app
+COPY api-redecoop/package.json api-redecoop/package-lock.json ./
+RUN npm ci
+COPY api-redecoop/ .
+RUN npm run build
+
+# ── Website ──
+FROM node:20-alpine AS website-builder
+WORKDIR /app
+ARG VITE_API_URL=http://85.31.231.192:3000/api
+ARG VITE_STORAGE_URL=http://85.31.231.192:3000/storage/
+ARG VITE_SITE_URL=http://85.31.231.192:8080
+ARG VITE_DASHBOARD_URL=http://85.31.231.192:8081
+ARG VITE_GHOST_URL=http://85.31.231.192:2368
+ARG VITE_GHOST_API_KEY=0cd73f92f827f0cfa64be9919d
+ENV VITE_API_URL=$VITE_API_URL \
+    VITE_STORAGE_URL=$VITE_STORAGE_URL \
+    VITE_SITE_URL=$VITE_SITE_URL \
+    VITE_DASHBOARD_URL=$VITE_DASHBOARD_URL \
+    VITE_GHOST_URL=$VITE_GHOST_URL \
+    VITE_GHOST_API_KEY=$VITE_GHOST_API_KEY
+COPY website-redecoop-new/package.json website-redecoop-new/package-lock.json ./
+RUN npm ci
+COPY website-redecoop-new/ .
+RUN npm run build
+
+# ── Dashboard ──
+FROM node:20-alpine AS dashboard-builder
+WORKDIR /app
+ARG VITE_API_URL=http://85.31.231.192:3000/api
+ARG VITE_WS_URL=http://85.31.231.192:3000
+ARG VITE_STORAGE_URL=http://85.31.231.192:3000/storage/
+ARG VITE_WEBSITE_URL=http://85.31.231.192:8080
+ARG VITE_DASHBOARD_URL=http://85.31.231.192:8081
+ENV VITE_API_URL=$VITE_API_URL \
+    VITE_WS_URL=$VITE_WS_URL \
+    VITE_STORAGE_URL=$VITE_STORAGE_URL \
+    VITE_WEBSITE_URL=$VITE_WEBSITE_URL \
+    VITE_DASHBOARD_URL=$VITE_DASHBOARD_URL
+COPY dashboard-redecoop-new/package.json dashboard-redecoop-new/package-lock.json ./
+RUN npm ci
+COPY dashboard-redecoop-new/ .
+RUN npm run build
+
+# ── App Motorista ──
+FROM node:20-alpine AS app-motorista-builder
+WORKDIR /app
+ARG VITE_API_URL=http://85.31.231.192:3000/api
+ARG VITE_WS_URL=http://85.31.231.192:3000
+ARG VITE_STORAGE_URL=http://85.31.231.192:3000/storage/
+ARG VITE_WEBSITE_URL=http://85.31.231.192:8080
+ARG VITE_DASHBOARD_URL=http://85.31.231.192:8081
+ENV VITE_API_URL=$VITE_API_URL \
+    VITE_WS_URL=$VITE_WS_URL \
+    VITE_STORAGE_URL=$VITE_STORAGE_URL \
+    VITE_WEBSITE_URL=$VITE_WEBSITE_URL \
+    VITE_DASHBOARD_URL=$VITE_DASHBOARD_URL
+COPY app-motorista-redecoop-new/package.json app-motorista-redecoop-new/package-lock.json ./
+RUN npm ci
+COPY app-motorista-redecoop-new/ .
+RUN npm run build
+
+# ── Produção (Node + Nginx + artefatos dos 4 apps) ──
+FROM node:20-alpine AS production
+
+RUN apk add --no-cache nginx wget \
+    && mkdir -p /var/lib/nginx/tmp/client_body /var/lib/nginx/logs /tmp/client_body
+
+WORKDIR /app/api
+COPY api-redecoop/package.json api-redecoop/package-lock.json ./
+RUN npm ci --omit=dev
+COPY --from=api-builder /app/dist ./dist
+RUN mkdir -p upload logs
+
+COPY --from=website-builder /app/dist /var/www/website
+COPY --from=dashboard-builder /app/dist /var/www/dashboard
+COPY --from=app-motorista-builder /app/dist /var/www/app-motorista
+
+COPY docker/nginx/ /etc/nginx/frontends/
+COPY docker/nginx-entrypoint.sh /docker-entrypoint-nginx.sh
+RUN sed -i 's/\r$//' /docker-entrypoint-nginx.sh && chmod +x /docker-entrypoint-nginx.sh
+
+ENV NODE_ENV=production
