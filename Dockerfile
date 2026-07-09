@@ -9,13 +9,14 @@ COPY api-redecoop/ .
 RUN npm run build
 
 # ── Website ──
+# URLs HTTPS entram no bundle no build — sem HTTP/IP (Mixed Content no browser)
 FROM node:20-alpine AS website-builder
 WORKDIR /app
-ARG VITE_API_URL=http://85.31.231.192:3000/api
-ARG VITE_STORAGE_URL=http://85.31.231.192:3000/storage/
-ARG VITE_SITE_URL=http://85.31.231.192:8080
-ARG VITE_DASHBOARD_URL=http://85.31.231.192:8081
-ARG VITE_GHOST_URL=http://85.31.231.192:2368
+ARG VITE_API_URL=https://api.redecooprs.com.br/api
+ARG VITE_STORAGE_URL=https://api.redecooprs.com.br/storage/
+ARG VITE_SITE_URL=https://redecooprs.com.br
+ARG VITE_DASHBOARD_URL=https://dashboard.redecooprs.com.br
+ARG VITE_GHOST_URL=https://redecooprs.com.br
 ARG VITE_GHOST_API_KEY=0cd73f92f827f0cfa64be9919d
 ENV VITE_API_URL=$VITE_API_URL \
     VITE_STORAGE_URL=$VITE_STORAGE_URL \
@@ -31,11 +32,11 @@ RUN npm run build
 # ── Dashboard ──
 FROM node:20-alpine AS dashboard-builder
 WORKDIR /app
-ARG VITE_API_URL=http://85.31.231.192:3000/api
-ARG VITE_WS_URL=http://85.31.231.192:3000
-ARG VITE_STORAGE_URL=http://85.31.231.192:3000/storage/
-ARG VITE_WEBSITE_URL=http://85.31.231.192:8080
-ARG VITE_DASHBOARD_URL=http://85.31.231.192:8081
+ARG VITE_API_URL=https://api.redecooprs.com.br/api
+ARG VITE_WS_URL=https://api.redecooprs.com.br
+ARG VITE_STORAGE_URL=https://api.redecooprs.com.br/storage/
+ARG VITE_WEBSITE_URL=https://redecooprs.com.br
+ARG VITE_DASHBOARD_URL=https://dashboard.redecooprs.com.br
 ENV VITE_API_URL=$VITE_API_URL \
     VITE_WS_URL=$VITE_WS_URL \
     VITE_STORAGE_URL=$VITE_STORAGE_URL \
@@ -49,11 +50,11 @@ RUN npm run build
 # ── App Motorista ──
 FROM node:20-alpine AS app-motorista-builder
 WORKDIR /app
-ARG VITE_API_URL=http://85.31.231.192:3000/api
-ARG VITE_WS_URL=http://85.31.231.192:3000
-ARG VITE_STORAGE_URL=http://85.31.231.192:3000/storage/
-ARG VITE_WEBSITE_URL=http://85.31.231.192:8080
-ARG VITE_DASHBOARD_URL=http://85.31.231.192:8081
+ARG VITE_API_URL=https://api.redecooprs.com.br/api
+ARG VITE_WS_URL=https://api.redecooprs.com.br
+ARG VITE_STORAGE_URL=https://api.redecooprs.com.br/storage/
+ARG VITE_WEBSITE_URL=https://redecooprs.com.br
+ARG VITE_DASHBOARD_URL=https://dashboard.redecooprs.com.br
 ENV VITE_API_URL=$VITE_API_URL \
     VITE_WS_URL=$VITE_WS_URL \
     VITE_STORAGE_URL=$VITE_STORAGE_URL \
