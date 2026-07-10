@@ -16,6 +16,8 @@ docker-compose.yml
 api-redecoop/upload/
 api-redecoop/logs/
 **/coverage/
+**/__pycache__/
+*.pyc
 api-redecoop/scripts/caf/.venv/
 api-redecoop/scripts/caf/data/*.json
 api-redecoop/scripts/caf/data/*.txt

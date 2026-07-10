@@ -1,0 +1,29 @@
+-- Export do TablePlus muitas vezes cria tabela `untitled_name` ou nome temporário.
+-- A API e o script consulta_caf.py usam a tabela fixa: `caf_data`.
+--
+-- Opção A — se `caf_data` está vazia e `untitled_name` tem o dump completo:
+--   RENAME TABLE caf_data TO caf_data_old;
+--   RENAME TABLE untitled_name TO caf_data;
+--
+-- Opção B — manter `caf_data` e copiar linhas do export (ajuste nomes das tabelas):
+-- INSERT INTO caf_data (
+--   cooperative_id, cnpj, cafe_uuid, numero_caf, razao_social, situacao,
+--   tipo_pessoa_juridica, municipio, uf, data_inscricao, data_validade,
+--   ultima_atualizacao, representante_legal, total_com_caf, total_sem_caf,
+--   percentual_com_caf, masculino, feminino, data_envio_composicao,
+--   categorias, atividades, municipios_socios, composicao_societaria, consulted_at
+-- )
+-- SELECT
+--   cooperative_id, cnpj, cafe_uuid, numero_caf, razao_social, situacao,
+--   tipo_pessoa_juridica, municipio, uf, data_inscricao, data_validade,
+--   ultima_atualizacao, representante_legal, total_com_caf, total_sem_caf,
+--   percentual_com_caf, masculino, feminino, data_envio_composicao,
+--   categorias, atividades, municipios_socios, composicao_societaria, consulted_at
+-- FROM untitled_name
+-- ON DUPLICATE KEY UPDATE
+--   razao_social = VALUES(razao_social),
+--   categorias = VALUES(categorias),
+--   atividades = VALUES(atividades),
+--   municipios_socios = VALUES(municipios_socios),
+--   consulted_at = VALUES(consulted_at);
+-- (Requer UNIQUE ou PRIMARY em `cnpj` para ON DUPLICATE — ajuste ao seu schema.)

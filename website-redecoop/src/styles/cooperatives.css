@@ -1,0 +1,643 @@
+/* Cooperativas — estilo editorial */
+
+.coop-page {
+  background: #f5f5f5;
+}
+
+.coop-inner {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding-left: clamp(16px, 4vw, 36px);
+  padding-right: clamp(16px, 4vw, 36px);
+}
+
+/* Perfil + mapa */
+.coop-profile {
+  padding: clamp(48px, 7vw, 72px) 0 clamp(40px, 6vw, 64px);
+  background:
+    radial-gradient(ellipse 90% 70% at 15% 40%, rgba(146, 208, 178, 0.28) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 50% at 85% 20%, rgba(0, 150, 64, 0.1) 0%, transparent 50%),
+    linear-gradient(165deg, #ffffff 0%, #f0f9f4 45%, #eef6fc 100%);
+}
+
+.coop-profile__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: clamp(32px, 5vw, 48px);
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .coop-profile__grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .coop-profile__map {
+    order: -1;
+    width: 100%;
+    overflow: visible;
+    padding-inline: 2px;
+  }
+
+  .coop-profile__aside {
+    z-index: 1;
+  }
+}
+
+.coop-profile__heading {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(1.35rem, 2.8vw, 1.875rem);
+  font-weight: 700;
+  color: #009640;
+  margin: 0 0 24px;
+  line-height: 1.25;
+}
+
+/* Select customizado — sempre abre para baixo */
+.coop-select-custom {
+  position: relative;
+  max-width: 360px;
+  margin-bottom: 24px;
+  z-index: 20;
+}
+
+.coop-select-custom__trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #dedede;
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 0.95rem;
+  color: #4a4a4a;
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.coop-select-custom__trigger:hover,
+.coop-select-custom--open .coop-select-custom__trigger {
+  border-color: #009640;
+  box-shadow: 0 0 0 3px rgba(0, 150, 64, 0.12);
+}
+
+.coop-select-custom__placeholder {
+  color: #9ca3af;
+}
+
+.coop-select-custom__chevron {
+  flex-shrink: 0;
+  color: #6b6b6b;
+  transition: transform 0.2s ease;
+}
+
+.coop-select-custom--open .coop-select-custom__chevron {
+  transform: rotate(180deg);
+}
+
+.coop-select-custom__list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: #fff;
+  border: 1px solid rgba(0, 150, 64, 0.15);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
+}
+
+.coop-select-custom__option {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 0.92rem;
+  color: #3d3d3d;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.coop-select-custom__option:hover,
+.coop-select-custom__option--active {
+  background: rgba(0, 150, 64, 0.1);
+  color: #009640;
+  font-weight: 600;
+}
+
+.coop-info {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.coop-profile__aside {
+  position: relative;
+  z-index: 2;
+  overflow: visible;
+}
+
+.coop-profile__map {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  overflow: visible;
+}
+
+.coop-profile__map > div {
+  width: 100%;
+  max-width: min(515px, 100%);
+  margin-inline: auto;
+}
+
+.coop-profile__map [class*='max-w'] {
+  max-width: 100% !important;
+}
+
+.coop-profile__map svg {
+  display: block;
+  width: 100% !important;
+  height: auto !important;
+  overflow: visible;
+}
+
+.coop-info__logo-wrap {
+  flex-shrink: 0;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #f4f4f4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border: 3px solid #fff;
+}
+
+.coop-info__logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.coop-info__name {
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: #1a1a2e;
+  margin: 0 0 4px;
+  line-height: 1.3;
+}
+
+.coop-info__meta {
+  font-size: 0.88rem;
+  color: #6b6b6b;
+  margin: 0 0 2px;
+}
+
+.coop-info__desc {
+  font-size: 0.92rem;
+  line-height: 1.65;
+  color: #4a4a4a;
+  margin: 16px 0 0;
+}
+
+.coop-hint {
+  font-size: clamp(1.1rem, 2vw, 1.35rem);
+  font-weight: 700;
+  color: #c8c8c8;
+  margin: 24px 0;
+  line-height: 1.4;
+}
+
+.coop-quote-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  max-width: 220px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 999px;
+  background: #009640;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.coop-quote-btn:hover {
+  background: #007a35;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 150, 64, 0.3);
+}
+
+/* Catálogo */
+.coop-catalog {
+  padding: clamp(48px, 7vw, 72px) 0;
+  background: #fff;
+}
+
+.coop-catalog__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.coop-catalog__title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0;
+}
+
+.coop-catalog__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.coop-filter {
+  appearance: none;
+  border: 1px solid rgba(0, 150, 64, 0.15);
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-size: 0.88rem;
+  color: #3d3d3d;
+  background: #f8faf9;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.coop-filter:focus {
+  outline: none;
+  border-color: #009640;
+}
+
+.coop-catalog__toolbar {
+  margin-bottom: 20px;
+}
+
+.coop-catalog__view-toggle {
+  display: inline-flex;
+  border: 1px solid rgba(0, 150, 64, 0.15);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f8faf9;
+}
+
+.coop-catalog__view-btn {
+  border: none;
+  background: transparent;
+  padding: 9px 18px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #5b6470;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.coop-catalog__view-btn + .coop-catalog__view-btn {
+  border-left: 1px solid rgba(0, 150, 64, 0.12);
+}
+
+.coop-catalog__view-btn--active {
+  background: #009640;
+  color: #fff;
+}
+
+.coop-table-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.coop-table-export {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(180deg, #f0f9f4 0%, #f8faf9 100%);
+  border: 1px solid rgba(0, 150, 64, 0.12);
+  border-bottom: 1px solid rgba(0, 150, 64, 0.08);
+  border-radius: 16px 16px 0 0;
+  overflow: hidden;
+}
+
+.coop-table-export__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #007a35;
+  letter-spacing: 0.01em;
+}
+
+.coop-table-export__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.coop-table-export__btn {
+  border: 1px solid rgba(0, 150, 64, 0.22);
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  background: #fff;
+  cursor: pointer;
+  transition:
+    border-color 0.25s ease,
+    background 0.25s ease,
+    color 0.25s ease,
+    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.25s ease;
+}
+
+.coop-table-export__btn:hover:not(:disabled) {
+  border-color: #009640;
+  background: rgba(0, 150, 64, 0.06);
+  transform: translateY(-1px);
+}
+
+.coop-table-export__btn--primary {
+  background: #009640;
+  border-color: #009640;
+  color: #fff;
+}
+
+.coop-table-export__btn--primary:hover:not(:disabled) {
+  background: #007a35;
+  border-color: #007a35;
+  box-shadow: 0 6px 18px rgba(0, 150, 64, 0.25);
+}
+
+.coop-table-export__btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+  transform: none;
+}
+
+.coop-table-panel .coop-table-wrap {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-top: none;
+}
+
+@media (max-width: 480px) {
+  .coop-table-export {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+    padding: 14px 16px;
+  }
+
+  .coop-table-export__label {
+    justify-content: center;
+  }
+
+  .coop-table-export__actions {
+    justify-content: center;
+  }
+
+  .coop-table-export__btn {
+    flex: 1;
+    max-width: 140px;
+  }
+}
+
+.coop-table-wrap {
+  overflow-x: auto;
+  border: 1px solid rgba(0, 150, 64, 0.1);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
+}
+
+.coop-table-wrap--loading {
+  padding: 0;
+}
+
+.coop-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.coop-table thead {
+  background: linear-gradient(180deg, #f0f9f4 0%, #e8f5ee 100%);
+}
+
+.coop-table th {
+  text-align: left;
+  padding: 14px 16px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #009640;
+  border-bottom: 1px solid rgba(0, 150, 64, 0.12);
+  white-space: nowrap;
+}
+
+.coop-table td {
+  padding: 12px 16px;
+  color: #3d3d3d;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  vertical-align: top;
+  line-height: 1.45;
+}
+
+.coop-table tbody tr:nth-child(even) {
+  background: rgba(0, 150, 64, 0.03);
+}
+
+.coop-table tbody tr:hover {
+  background: rgba(0, 150, 64, 0.07);
+}
+
+.coop-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.coop-skeleton--table {
+  min-height: 280px;
+  border-radius: 16px;
+}
+
+.coop-products {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .coop-products { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 768px) {
+  .coop-products { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 480px) {
+  .coop-products { grid-template-columns: 1fr; }
+}
+
+.coop-product {
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 150, 64, 0.08);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.04);
+  transition:
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.35s ease;
+}
+
+
+.coop-product:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 40px rgba(0, 150, 64, 0.12);
+}
+
+.coop-product__img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+  background: #f0f0f0;
+}
+
+.coop-product__body {
+  padding: 14px 16px 16px;
+}
+
+.coop-product__name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.coop-product__coop {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin: 6px 0 0;
+}
+
+.coop-product__tag {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #009640;
+  background: rgba(0, 150, 64, 0.1);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.coop-skeleton {
+  aspect-ratio: 4 / 3;
+  border-radius: 16px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+  background-size: 800px 100%;
+  animation: coopShimmer 1.2s infinite linear;
+}
+
+@keyframes coopShimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.coop-empty {
+  text-align: center;
+  padding: 48px 16px;
+  color: #6b6b6b;
+  font-size: 1rem;
+}
+
+.coop-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 36px;
+  padding-top: 24px;
+  border-top: 1px solid #eee;
+}
+
+.coop-pagination__btn {
+  padding: 10px 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 150, 64, 0.2);
+  background: #fff;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #009640;
+  cursor: pointer;
+  transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.coop-pagination__btn:hover:not(:disabled) {
+  background: rgba(0, 150, 64, 0.08);
+}
+
+.coop-pagination__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.coop-pagination__info {
+  font-size: 0.88rem;
+  color: #6b6b6b;
+}
+
+/* Orçamento */
+.coop-budget {
+  position: relative;
+  padding: clamp(56px, 8vw, 80px) 0;
+  background:
+    linear-gradient(rgba(0, 107, 46, 0.88), rgba(0, 150, 64, 0.85)),
+    url('/assets/imgs/bgs/footer.jpg') center / cover no-repeat;
+}
+
+.coop-budget__card {
+  max-width: 720px;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 24px;
+  padding: clamp(28px, 4vw, 40px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.2);
+}

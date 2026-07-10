@@ -1,0 +1,294 @@
+/* Contato — estilo editorial */
+
+@keyframes contactFadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.contact-page {
+  background: #f5f5f5;
+  overflow-x: hidden;
+}
+
+.contact-inner {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding-left: clamp(16px, 4vw, 36px);
+  padding-right: clamp(16px, 4vw, 36px);
+}
+
+/* Hero */
+.contact-hero {
+  background: url(/assets/imgs/bgs/banner-home.jpg) center / cover no-repeat;
+  padding: clamp(48px, 8vw, 88px) 0 clamp(40px, 6vw, 64px);
+  position: relative;
+  overflow: hidden;
+}
+
+.contact-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+}
+
+.contact-hero__content {
+  position: relative;
+  text-align: center;
+  animation: contactFadeUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.contact-hero__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 12px;
+}
+
+.contact-hero__kicker-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e30613;
+  box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.25);
+}
+
+.contact-hero__title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(2.5rem, 7vw, 4rem);
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+  line-height: 1.05;
+}
+
+.contact-hero__subtitle {
+  margin: 16px auto 0;
+  max-width: 32em;
+  font-size: clamp(1rem, 1.8vw, 1.2rem);
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+/* Corpo */
+.contact-body {
+  padding: clamp(40px, 6vw, 72px) 0 clamp(64px, 9vw, 96px);
+  background: #fff;
+}
+
+.contact-body__grid {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: clamp(32px, 5vw, 56px);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .contact-body__grid { grid-template-columns: 1fr; }
+}
+
+.contact-aside__intro {
+  font-size: clamp(1rem, 1.5vw, 1.1rem);
+  line-height: 1.75;
+  color: #4a4a4a;
+  margin: 0 0 28px;
+}
+
+.contact-channels {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.contact-channel {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 20px;
+  background: #f8faf9;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 150, 64, 0.1);
+  text-decoration: none;
+  color: inherit;
+  transition:
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.35s ease,
+    border-color 0.35s ease,
+    background 0.35s ease;
+}
+
+a.contact-channel {
+  cursor: pointer;
+}
+
+a.contact-channel:hover,
+.contact-channel--static:hover {
+  transform: translateY(-4px);
+  background: #fff;
+  border-color: rgba(0, 150, 64, 0.25);
+  box-shadow: 0 12px 32px rgba(0, 150, 64, 0.1);
+}
+
+.contact-channel__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(0, 150, 64, 0.1);
+  color: #009640;
+  flex-shrink: 0;
+  transition: background 0.35s ease, color 0.35s ease;
+}
+
+a.contact-channel:hover .contact-channel__icon,
+.contact-channel--static:hover .contact-channel__icon {
+  background: #009640;
+  color: #fff;
+}
+
+.contact-channel__label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #009640;
+  margin: 0 0 4px;
+}
+
+.contact-channel__value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.contact-social {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(0, 150, 64, 0.12);
+}
+
+.contact-social__label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #6b6b6b;
+  margin-right: 4px;
+}
+
+.contact-social__link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #009640;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.contact-social__link:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 8px 20px rgba(0, 150, 64, 0.3);
+}
+
+.contact-social__link img {
+  width: 20px;
+  height: 20px;
+  filter: brightness(0) invert(1);
+}
+
+/* Formulário */
+.contact-form-card {
+  background: #fff;
+  border-radius: 24px;
+  padding: clamp(28px, 4vw, 40px);
+  border: 1px solid rgba(0, 150, 64, 0.12);
+  box-shadow: 0 16px 48px rgba(0, 100, 50, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.contact-form-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #009640, #e30613, #009640);
+}
+
+.contact-form-card__title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(1.5rem, 3vw, 1.875rem);
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0 0 8px;
+}
+
+.contact-form-card__note {
+  font-size: 0.92rem;
+  color: #6b6b6b;
+  margin: 0 0 28px;
+  line-height: 1.5;
+}
+
+.contact-form-card .contact-form-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .contact-form-card .contact-form-fields { grid-template-columns: 1fr; }
+}
+
+.contact-form-card .contact-form-full {
+  grid-column: 1 / -1;
+}
+
+.contact-form-card textarea {
+  margin-top: 6px;
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  resize: vertical;
+  min-height: 120px;
+}
+
+.contact-form-card textarea:focus {
+  border-color: #009640;
+  box-shadow: 0 0 0 3px rgba(0, 150, 64, 0.12);
+}
+
+.contact-form-card__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.contact-form-card__required {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}

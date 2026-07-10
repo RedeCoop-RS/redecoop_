@@ -1,0 +1,130 @@
+/* Home — seção do mapa de cooperativas */
+
+.home-map-section {
+  position: relative;
+  z-index: 10;
+  margin-top: -3rem;
+  padding: clamp(2rem, 5vw, 2.75rem) 0 clamp(2rem, 5vw, 2.75rem);
+}
+
+.home-map-section__inner {
+  width: 100%;
+  max-width: 80rem;
+  margin: 0 auto;
+  padding-inline: clamp(1rem, 4vw, 2rem);
+}
+
+.home-map-section__layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(1.75rem, 4vw, 2.5rem);
+}
+
+.home-map-section__map {
+  order: 2;
+  width: 100%;
+  max-width: 515px;
+  overflow: visible;
+}
+
+.home-map-section__copy {
+  order: 1;
+  width: 100%;
+  max-width: 28rem;
+}
+
+.home-map-section__copy-inner {
+  position: relative;
+}
+
+.home-map-section__kicker {
+  margin: 0;
+  color: #009640;
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+.home-map-section__title {
+  margin: 1rem 0 0;
+  font-size: clamp(2rem, 5vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.home-map-section__title-red {
+  color: #e30613;
+}
+
+.home-map-section__title-green {
+  color: #009640;
+}
+
+.home-map-section__map-word {
+  display: inline-block;
+  position: relative;
+  color: #e30613;
+  font-family: 'Caveat', cursive;
+  font-size: 22px;
+  font-weight: 700;
+  transform: rotate(-20deg);
+  vertical-align: baseline;
+}
+
+.home-map-section__map-word-o {
+  position: absolute;
+  top: -1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.home-map-section__map-word-label {
+  display: block;
+  padding-top: 0.25rem;
+}
+
+.home-map-section__arrow {
+  display: none;
+  position: absolute;
+  width: 343px;
+  pointer-events: none;
+  bottom: -90px;
+  left: -230px;
+}
+
+/* Desktop: mapa à esquerda, texto à direita, bloco centralizado na página */
+@media (min-width: 1024px) {
+  .home-map-section__layout {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(2rem, 4vw, 3.5rem);
+  }
+
+  .home-map-section__map {
+    order: 1;
+    flex: 0 0 auto;
+    width: min(515px, 46vw);
+    max-width: 515px;
+  }
+
+  .home-map-section__copy {
+    order: 2;
+    flex: 0 1 28rem;
+    max-width: 32rem;
+    padding-top: 1.5rem;
+  }
+
+  .home-map-section__arrow {
+    display: block;
+  }
+}
+
+@media (max-width: 1023px) {
+  .home-map-section__copy {
+    text-align: left;
+  }
+}

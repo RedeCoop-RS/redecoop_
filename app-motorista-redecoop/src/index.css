@@ -1,0 +1,95 @@
+@import "tailwindcss";
+@import "./styles/app.css";
+
+@theme {
+  --color-green: #009640;
+  --color-green-light: #92d0b2;
+  --color-green-dark: #007a35;
+  --color-green-soft: #e8f5ee;
+  --color-red: #e30613;
+  --color-yellow: #ffd300;
+  --color-yellow-soft: #fff8e0;
+  --color-grey: #9a9a9a;
+  --color-grey-dark: #6b6b6b;
+  --color-surface: #f3f6fe;
+  --color-surface-mint: #f0f9f4;
+  --color-cream: #fafcf8;
+  --color-ink: #1a1a2e;
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+@layer base {
+  :root {
+    --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+    --duration-smooth: 0.4s;
+    --touch-target-min: 48px;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply font-sans text-ink antialiased;
+    min-height: 100dvh;
+    background-color: var(--color-cream);
+    -webkit-tap-highlight-color: transparent;
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  #root {
+    min-height: 100dvh;
+  }
+
+  a,
+  button,
+  [role='button'] {
+    transition-property: color, background-color, border-color, box-shadow, transform, filter;
+    transition-duration: var(--duration-smooth);
+    transition-timing-function: var(--ease-smooth);
+  }
+}
+
+@layer utilities {
+  .bg-section-mist {
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0, 150, 64, 0.09) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 0% 100%, rgba(146, 208, 178, 0.2) 0%, transparent 50%),
+      linear-gradient(180deg, #f5faf7 0%, #eef5fb 50%, #f8fdf9 100%);
+  }
+
+  .gradient-hero {
+    background: linear-gradient(135deg, #007a35 0%, #009640 40%, #00b34a 100%);
+  }
+
+  .glass-card {
+    @apply bg-white/95 backdrop-blur-sm border border-white/60 shadow-lg shadow-green/5;
+  }
+
+  .transition-smooth {
+    transition: all var(--duration-smooth) var(--ease-smooth);
+  }
+
+  .app-kicker {
+    @apply inline-block text-xs font-bold tracking-[0.18em] uppercase text-green;
+  }
+
+  .app-stripe-bar {
+    @apply flex h-1 w-full;
+  }
+
+  .app-stripe-bar__green {
+    @apply flex-[2] bg-green;
+  }
+
+  .app-stripe-bar__yellow {
+    @apply flex-1 bg-yellow;
+  }
+
+  .app-stripe-bar__mint {
+    @apply flex-1 bg-green-light;
+  }
+}
