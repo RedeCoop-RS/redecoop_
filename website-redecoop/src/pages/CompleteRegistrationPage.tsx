@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { Footer } from '@/components/layout/Footer'
+import { Seo } from '@/components/Seo'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { cooperativeService } from '@/services/cooperative.service'
@@ -98,6 +99,7 @@ export function CompleteRegistrationPage() {
 
   return (
     <>
+      <Seo title="Completar Cadastro" noindex />
       <section className="min-h-screen bg-section-mist py-16 px-4">
         <div className="mx-auto max-w-2xl">
           <div className="text-center mb-10">

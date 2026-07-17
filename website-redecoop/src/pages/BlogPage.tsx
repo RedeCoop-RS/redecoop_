@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
+import { Seo } from '@/components/Seo'
 import { OptimizedImage } from '@/components/ui/OptimizedImage'
 import { ghostService, rewriteGhostAssetUrl } from '@/services/ghost.service'
 import type { GhostPost, GhostTag } from '@/types'
@@ -133,6 +134,22 @@ export function BlogPage() {
 
   return (
     <>
+      <Seo
+        title="Blog"
+        description="Notícias e artigos da RedeCoop RS sobre cooperativismo, agricultura familiar e economia solidária no Rio Grande do Sul."
+        path="/blog"
+        jsonLd={[
+          {
+            '@context': 'https://schema.org',
+            '@type': 'Blog',
+            name: 'Blog RedeCoop',
+            url: 'https://redecooprs.com.br/blog',
+            description:
+              'Notícias e artigos sobre cooperativismo, agricultura familiar e economia solidária no Rio Grande do Sul.',
+            publisher: { '@type': 'Organization', name: 'RedeCoop RS' },
+          },
+        ]}
+      />
       <Navbar />
 
       <div className="blog-verge">

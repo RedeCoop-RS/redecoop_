@@ -1,11 +1,13 @@
 import { Link } from 'react-router-dom'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
+import { Seo } from '@/components/Seo'
 import { Button } from '@/components/ui/Button'
 
 export function NotFoundPage() {
   return (
     <>
+      <Seo title="Página não encontrada" noindex />
       <Navbar />
       <section className="min-h-[60vh] flex flex-col items-center justify-center px-4 bg-section-cream">
         <img src="/assets/imgs/404.svg" alt="Erro 404" className="w-64 mb-8" />

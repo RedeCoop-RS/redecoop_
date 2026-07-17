@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /cooperativas
+Disallow: /completar-cadastro/
+
+Sitemap: https://redecooprs.com.br/sitemap.xml

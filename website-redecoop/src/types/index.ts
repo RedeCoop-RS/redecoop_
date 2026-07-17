@@ -142,6 +142,7 @@ export interface GhostPost {
   slug: string
   html: string
   excerpt?: string
+  custom_excerpt?: string
   feature_image?: string
   feature_image_alt?: string
   published_at: string
@@ -151,6 +152,12 @@ export interface GhostPost {
   authors?: GhostAuthor[]
   meta_title?: string
   meta_description?: string
+  og_title?: string
+  og_description?: string
+  og_image?: string
+  twitter_title?: string
+  twitter_description?: string
+  twitter_image?: string
 }
 
 export interface TakePartForm {

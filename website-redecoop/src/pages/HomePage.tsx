@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
+import { Seo } from '@/components/Seo'
 import { Button } from '@/components/ui/Button'
 import { CooperativesMapSection } from '@/components/map/CooperativesMapSection'
 import { HomeGovernanceSection } from '@/components/home/HomeGovernanceSection'
@@ -35,6 +36,7 @@ export function HomePage() {
 
   return (
     <>
+      <Seo path="/" />
       <Navbar />
 
       {/* Hero */}

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
+import { Seo } from '@/components/Seo'
 import { Button } from '@/components/ui/Button'
 import { OptimizedImage } from '@/components/ui/OptimizedImage'
 import { slideInViewDelayed } from '@/lib/motion'
@@ -56,6 +57,11 @@ const hoverEase = { duration: 0.35, ease: scrollEase }
 export function ServicesPage() {
   return (
     <>
+      <Seo
+        title="Serviços"
+        description="Serviços da RedeCoop RS para cooperativas da agricultura familiar: representação comercial, logística e apoio à comercialização em novos mercados."
+        path="/servicos"
+      />
       <Navbar />
 
       <div className="svc-page">

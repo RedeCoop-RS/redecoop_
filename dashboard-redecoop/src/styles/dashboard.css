@@ -1574,6 +1574,31 @@
   color: #007a35;
 }
 
+.coops-thumb {
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: #f3f4f6;
+  cursor: zoom-in;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.coops-thumb:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transform: scale(1.05);
+}
+
+.coops-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .coops-link {
   color: #007a35;
   font-weight: 600;

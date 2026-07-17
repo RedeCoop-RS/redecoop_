@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { Handshake, Truck, ShoppingCart } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
+import { Seo } from '@/components/Seo'
 import { Button } from '@/components/ui/Button'
 import { useModal } from '@/contexts/ModalContext'
 import '@/styles/platform.css'
@@ -64,6 +65,11 @@ export function PlatformPage() {
 
   return (
     <>
+      <Seo
+        title="Cooperativismo de plataforma"
+        description="Plataforma do cooperativismo em rede da RedeCoop RS: Balcão de Negócios, CoopFrete e Compras Coletivas para conectar cooperativas da agricultura familiar."
+        path="/cooperativismo-de-plataforma"
+      />
       <Navbar />
 
       <div className="plat-page">

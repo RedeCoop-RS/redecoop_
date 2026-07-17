@@ -5,8 +5,60 @@ import { ArrowLeft, Clock, Share2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
+import { Seo, seoDefaults } from '@/components/Seo'
+import { environment } from '@/config/environment'
 import { ghostService, rewriteGhostAssetUrl, rewriteGhostHtml } from '@/services/ghost.service'
 import type { GhostPost } from '@/types'
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function postDescription(post: GhostPost): string {
+  const text = post.meta_description || post.custom_excerpt || post.excerpt || stripHtml(post.html)
+  return text.length > 160 ? `${text.slice(0, 157).trimEnd()}…` : text
+}
+
+function buildPostJsonLd(post: GhostPost, url: string, image: string): object[] {
+  const author = post.authors?.[0]
+  return [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Article',
+      headline: post.title,
+      description: postDescription(post),
+      image: image ? [image] : undefined,
+      datePublished: post.published_at,
+      dateModified: post.updated_at,
+      mainEntityOfPage: { '@type': 'WebPage', '@id': url },
+      author: author
+        ? { '@type': 'Person', name: author.name }
+        : { '@type': 'Organization', name: seoDefaults.siteName },
+      publisher: {
+        '@type': 'Organization',
+        name: seoDefaults.siteName,
+        logo: {
+          '@type': 'ImageObject',
+          url: `${environment.siteUrl.replace(/\/$/, '')}/assets/imgs/logo.png`,
+        },
+      },
+      keywords: post.tags?.map((t) => t.name).join(', ') || undefined,
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Blog',
+          item: `${environment.siteUrl.replace(/\/$/, '')}/blog`,
+        },
+        { '@type': 'ListItem', position: 2, name: post.title, item: url },
+      ],
+    },
+  ]
+}
 
 export function BlogPostPage() {
   const { slug } = useParams<{ slug: string }>()
@@ -73,9 +125,26 @@ export function BlogPostPage() {
   }
 
   const safeHtml = DOMPurify.sanitize(rewriteGhostHtml(post.html))
+  const postUrl = `${environment.siteUrl.replace(/\/$/, '')}/blog/${post.slug}`
+  const shareImage = rewriteGhostAssetUrl(post.og_image || post.feature_image) || seoDefaults.image
 
   return (
     <>
+      <Seo
+        title={post.meta_title || post.title}
+        description={postDescription(post)}
+        path={`/blog/${post.slug}`}
+        image={shareImage}
+        type="article"
+        article={{
+          publishedTime: post.published_at,
+          modifiedTime: post.updated_at,
+          tags: post.tags?.map((t) => t.name),
+          author: post.authors?.[0]?.name,
+        }}
+        jsonLd={buildPostJsonLd(post, postUrl, shareImage)}
+      />
+
       <div className="fixed top-0 left-0 right-0 h-1 z-50 bg-gray-100">
         <div className="h-full bg-green transition-all" style={{ width: `${progress}%` }} />
       </div>
@@ -112,8 +181,8 @@ export function BlogPostPage() {
             {post.title}
           </h1>
 
-          {post.excerpt && (
-            <p className="mt-4 text-lg text-grey-dark leading-relaxed">{post.excerpt}</p>
+          {post.custom_excerpt && (
+            <p className="mt-4 text-lg text-grey-dark leading-relaxed">{post.custom_excerpt}</p>
           )}
 
           <div className="flex items-center gap-4 mt-8 pb-8 border-b border-gray-100 text-sm text-grey">

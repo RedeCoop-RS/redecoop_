@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { CheckCircle, FileSpreadsheet } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
+import { Seo } from '@/components/Seo'
 import { BudgetForm } from '@/components/forms/BudgetForm'
 import { CoopSelect } from '@/components/cooperatives/CoopSelect'
 import { RsMap } from '@/components/map/RsMap'
@@ -123,6 +124,7 @@ export function CooperativesPage() {
 
   return (
     <div className="coop-page">
+      <Seo title="Cooperativas" noindex />
       <Navbar />
 
       <section className="coop-profile">

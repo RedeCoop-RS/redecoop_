@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { Handshake, Sprout, TrendingUp, FileText } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
+import { Seo } from '@/components/Seo'
 import { Button } from '@/components/ui/Button'
 import { OptimizedImage } from '@/components/ui/OptimizedImage'
 import { slideInView } from '@/lib/motion'
@@ -37,6 +38,12 @@ const hoverEase = { duration: 0.35, ease: [0.22, 1, 0.36, 1] as const }
 export function GovernancePage() {
   return (
     <>
+      <Seo
+        title="Governança"
+        description="Como funciona a governança da RedeCoop RS: cooperação em rede, fortalecimento da agricultura familiar e renda distribuída entre os associados."
+        path="/governanca"
+        image="/assets/imgs/home_governance.jpg"
+      />
       <Navbar />
 
       <div className="gov-page">

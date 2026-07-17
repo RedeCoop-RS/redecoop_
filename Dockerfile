@@ -24,9 +24,9 @@ ENV VITE_API_URL=$VITE_API_URL \
     VITE_DASHBOARD_URL=$VITE_DASHBOARD_URL \
     VITE_GHOST_URL=$VITE_GHOST_URL \
     VITE_GHOST_API_KEY=$VITE_GHOST_API_KEY
-COPY website-redecoop-new/package.json website-redecoop-new/package-lock.json ./
+COPY website-redecoop/package.json website-redecoop/package-lock.json ./
 RUN npm ci
-COPY website-redecoop-new/ .
+COPY website-redecoop/ .
 RUN npm run build
 
 # ── Dashboard ──
@@ -42,9 +42,9 @@ ENV VITE_API_URL=$VITE_API_URL \
     VITE_STORAGE_URL=$VITE_STORAGE_URL \
     VITE_WEBSITE_URL=$VITE_WEBSITE_URL \
     VITE_DASHBOARD_URL=$VITE_DASHBOARD_URL
-COPY dashboard-redecoop-new/package.json dashboard-redecoop-new/package-lock.json ./
+COPY dashboard-redecoop/package.json dashboard-redecoop/package-lock.json ./
 RUN npm ci
-COPY dashboard-redecoop-new/ .
+COPY dashboard-redecoop/ .
 RUN npm run build
 
 # ── App Motorista ──
@@ -60,9 +60,9 @@ ENV VITE_API_URL=$VITE_API_URL \
     VITE_STORAGE_URL=$VITE_STORAGE_URL \
     VITE_WEBSITE_URL=$VITE_WEBSITE_URL \
     VITE_DASHBOARD_URL=$VITE_DASHBOARD_URL
-COPY app-motorista-redecoop-new/package.json app-motorista-redecoop-new/package-lock.json ./
+COPY app-motorista-redecoop/package.json app-motorista-redecoop/package-lock.json ./
 RUN npm ci
-COPY app-motorista-redecoop-new/ .
+COPY app-motorista-redecoop/ .
 RUN npm run build
 
 # ── Produção (Node + Nginx + artefatos dos 4 apps) ──

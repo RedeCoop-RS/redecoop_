@@ -284,8 +284,17 @@ export function CooperativesTable({ asSection = false }: { asSection?: boolean }
                     <tr key={row.id} className="coops-table__row">
                       <td data-label="Imagem">
                         {img ? (
-                          <button type="button" className="coops-link" onClick={() => showImage(img)}>
-                            Ver
+                          <button
+                            type="button"
+                            className="coops-thumb"
+                            title="Ampliar imagem"
+                            onClick={() => showImage(img)}
+                          >
+                            <img
+                              src={`${environment.storageUrl}${img}`}
+                              alt={cooperativeDisplayName(row)}
+                              loading="lazy"
+                            />
                           </button>
                         ) : (
                           '—'

@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { Mail, MapPin, Phone } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
+import { Seo } from '@/components/Seo'
 import { ContactForm } from '@/components/forms/ContactForm'
 import '@/styles/contact.css'
 
@@ -37,6 +38,11 @@ const scrollEase = [0.22, 1, 0.36, 1] as const
 export function ContactPage() {
   return (
     <>
+      <Seo
+        title="Contato"
+        description="Fale com a RedeCoop RS por e-mail, WhatsApp (51) 98131-0336 ou visite-nos em Porto Alegre. Atendemos cooperativas de todo o Rio Grande do Sul."
+        path="/contato"
+      />
       <Navbar />
 
       <div className="contact-page">
