@@ -6,4 +6,6 @@ export const environment = {
   dashboardUrl: import.meta.env.VITE_DASHBOARD_URL ?? '',
   ghostUrl: import.meta.env.VITE_GHOST_URL ?? 'https://redecooprs.com.br',
   ghostApiKey: import.meta.env.VITE_GHOST_API_KEY ?? '0cd73f92f827f0cfa64be9919d',
+  /** GA4 Measurement ID (G-…). Vazio = analytics desligado. */
+  gaMeasurementId: import.meta.env.VITE_GA_MEASUREMENT_ID ?? '',
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Search, Trash2, ZoomIn } from 'lucide-react'
 import { productService, type CategoryCount, type ProductListFilters } from '@/services/product.service'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -267,8 +267,16 @@ export function ProductsPage() {
                 <tr key={row.id}>
                   <td data-label="Imagem">
                     {row.img ? (
-                      <button type="button" className="business-link" onClick={() => setPreviewImage(resolveStorageUrl(row.img))}>
-                        Ver
+                      <button
+                        type="button"
+                        className="coops-thumb"
+                        title="Ampliar imagem"
+                        onClick={() => setPreviewImage(resolveStorageUrl(row.img))}
+                      >
+                        <img src={resolveStorageUrl(row.img)} alt={row.name} loading="lazy" />
+                        <span className="coops-thumb__zoom" aria-hidden>
+                          <ZoomIn size={12} strokeWidth={2.5} />
+                        </span>
                       </button>
                     ) : (
                       '—'

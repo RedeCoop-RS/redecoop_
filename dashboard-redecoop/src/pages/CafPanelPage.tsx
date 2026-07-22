@@ -1,12 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ClipboardList, Percent, RefreshCw, Users } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { ClipboardList, Percent, Users } from 'lucide-react'
 import { CafCooperativesTable } from '@/components/caf/CafCooperativesTable'
 import { CafScrollTable } from '@/components/caf/CafScrollTable'
-import { CafSyncModal } from '@/components/caf/CafSyncModal'
 import { ChartCard } from '@/components/charts/ChartCard'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatCard } from '@/components/ui/StatCard'
-import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useAuth } from '@/contexts/AuthContext'
 import { cafService } from '@/services/misc.service'
@@ -21,9 +19,8 @@ export function CafPanelPage() {
   const { user, isAdmin } = useAuth()
   const [panel, setPanel] = useState<CafPanelData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [syncOpen, setSyncOpen] = useState(false)
 
-  const loadPanel = useCallback(() => {
+  useEffect(() => {
     setLoading(true)
     cafService
       .getPanel()
@@ -36,10 +33,6 @@ export function CafPanelPage() {
       .catch(() => setPanel(null))
       .finally(() => setLoading(false))
   }, [])
-
-  useEffect(() => {
-    loadPanel()
-  }, [loadPanel])
 
   const nomeCooperativa =
     (user?.cooperative?.fantasyName ?? user?.cooperative?.name ?? user?.cooperative?.companyName ?? '')
@@ -93,25 +86,7 @@ export function CafPanelPage() {
 
   return (
     <div>
-      <PageHeader
-        kicker="CAF"
-        title="Painel CAF"
-        description={headerDescription}
-        actions={
-          isAdmin ? (
-            <Button onClick={() => setSyncOpen(true)}>
-              <RefreshCw size={16} />
-              Atualizar CAFs
-            </Button>
-          ) : undefined
-        }
-      />
-
-      <CafSyncModal
-        open={syncOpen}
-        onClose={() => setSyncOpen(false)}
-        onComplete={loadPanel}
-      />
+      <PageHeader kicker="CAF" title="Painel CAF" description={headerDescription} />
 
       {loading && (
         <div className="flex flex-col items-center justify-center py-16">

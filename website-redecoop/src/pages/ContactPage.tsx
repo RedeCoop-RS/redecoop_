@@ -2,8 +2,9 @@ import { motion } from 'framer-motion'
 import { Mail, MapPin, Phone } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
-import { Seo } from '@/components/Seo'
+import { Seo, seoDefaults } from '@/components/Seo'
 import { ContactForm } from '@/components/forms/ContactForm'
+import { environment } from '@/config/environment'
 import '@/styles/contact.css'
 
 const channels = [
@@ -36,16 +37,40 @@ const socials = [
 const scrollEase = [0.22, 1, 0.36, 1] as const
 
 export function ContactPage() {
+  const siteUrl = environment.siteUrl.replace(/\/$/, '')
+
   return (
     <>
       <Seo
         title="Contato"
         description="Fale com a RedeCoop RS por e-mail, WhatsApp (51) 98131-0336 ou visite-nos em Porto Alegre. Atendemos cooperativas de todo o Rio Grande do Sul."
         path="/contato"
+        jsonLd={[
+          {
+            '@context': 'https://schema.org',
+            '@type': 'LocalBusiness',
+            name: seoDefaults.siteName,
+            url: `${siteUrl}/contato`,
+            email: 'redecoop.rs@gmail.com.br',
+            telephone: '+55-51-98131-0336',
+            address: {
+              '@type': 'PostalAddress',
+              streetAddress: 'Rua Vítor Valpírio, 795 — Anchieta',
+              addressLocality: 'Porto Alegre',
+              addressRegion: 'RS',
+              addressCountry: 'BR',
+            },
+            areaServed: { '@type': 'AdministrativeArea', name: 'Rio Grande do Sul' },
+            sameAs: [
+              'https://instagram.com/redecooprs',
+              'https://facebook.com/RedeCoop-RS',
+            ],
+          },
+        ]}
       />
       <Navbar />
 
-      <div className="contact-page">
+      <main className="contact-page">
         <section className="contact-hero">
           <div className="contact-inner">
             <div className="contact-hero__content">
@@ -145,7 +170,7 @@ export function ContactPage() {
             </div>
           </div>
         </section>
-      </div>
+      </main>
 
       <Footer withMarginTop={false} />
     </>

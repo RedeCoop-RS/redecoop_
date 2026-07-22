@@ -5,6 +5,7 @@ import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
 import { Seo } from '@/components/Seo'
 import { OptimizedImage } from '@/components/ui/OptimizedImage'
+import { environment } from '@/config/environment'
 import { ghostService, rewriteGhostAssetUrl } from '@/services/ghost.service'
 import type { GhostPost, GhostTag } from '@/types'
 import '@/styles/blog.css'
@@ -131,6 +132,7 @@ export function BlogPage() {
     new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 
   const authorName = (p: GhostPost) => p.authors?.[0]?.name
+  const siteUrl = environment.siteUrl.replace(/\/$/, '')
 
   return (
     <>
@@ -143,16 +145,16 @@ export function BlogPage() {
             '@context': 'https://schema.org',
             '@type': 'Blog',
             name: 'Blog RedeCoop',
-            url: 'https://redecooprs.com.br/blog',
+            url: `${siteUrl}/blog`,
             description:
               'Notícias e artigos sobre cooperativismo, agricultura familiar e economia solidária no Rio Grande do Sul.',
-            publisher: { '@type': 'Organization', name: 'RedeCoop RS' },
+            publisher: { '@type': 'Organization', name: 'RedeCoop RS', url: siteUrl },
           },
         ]}
       />
       <Navbar />
 
-      <div className="blog-verge">
+      <main className="blog-verge">
         <div className="blog-verge__masthead">
           <div className="blog-verge__stripe blog-verge__stripe--ink" />
           <div className="blog-verge__stripe blog-verge__stripe--volt" />
@@ -456,7 +458,7 @@ export function BlogPage() {
             )}
           </div>
         )}
-      </div>
+      </main>
 
       <Footer withMarginTop={false} />
     </>

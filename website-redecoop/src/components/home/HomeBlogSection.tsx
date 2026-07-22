@@ -11,10 +11,11 @@ interface HomeBlogSectionProps {
   posts: GhostPost[]
   loading: boolean
   formatDate: (date: string) => string
+  error?: boolean
 }
 
-export function HomeBlogSection({ posts, loading, formatDate }: HomeBlogSectionProps) {
-  if (!loading && posts.length === 0) return null
+export function HomeBlogSection({ posts, loading, formatDate, error = false }: HomeBlogSectionProps) {
+  if (!loading && posts.length === 0 && !error) return null
 
   const featured = posts[0]
   const rest = posts.slice(1)
@@ -39,7 +40,7 @@ export function HomeBlogSection({ posts, loading, formatDate }: HomeBlogSectionP
                 Notícias, artigos e novidades sobre cooperativismo e agricultura familiar no RS.
               </p>
             </div>
-            {!loading && (
+            {!loading && !error && (
               <motion.div whileHover={{ y: -3, scale: 1.03 }} transition={{ duration: 0.3 }} className="hidden md:block shrink-0">
                 <Link to="/blog" className="home-blog-link inline-flex items-center gap-2">
                   Ver todos <ArrowRight size={18} />
@@ -48,6 +49,16 @@ export function HomeBlogSection({ posts, loading, formatDate }: HomeBlogSectionP
             )}
           </div>
 
+          {error && !loading && (
+            <p className="rounded-xl border border-yellow/30 bg-yellow/10 px-4 py-3 text-sm text-ink">
+              Não foi possível carregar os artigos agora. Tente novamente ou{' '}
+              <Link to="/blog" className="font-semibold text-green underline">
+                abra o blog
+              </Link>
+              .
+            </p>
+          )}
+          {(loading || featured) && (
           <div className="relative min-h-[420px]">
             <div
               aria-hidden={!loading}
@@ -145,7 +156,9 @@ export function HomeBlogSection({ posts, loading, formatDate }: HomeBlogSectionP
               )}
             </div>
           </div>
+          )}
 
+          {!error && (
           <div className="text-center mt-12 md:hidden">
             <motion.div whileHover={{ y: -3, scale: 1.03 }} transition={{ duration: 0.3 }} className="inline-block">
               <Link to="/blog">
@@ -153,6 +166,7 @@ export function HomeBlogSection({ posts, loading, formatDate }: HomeBlogSectionP
               </Link>
             </motion.div>
           </div>
+          )}
         </div>
       </div>
     </section>

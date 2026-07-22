@@ -6,7 +6,9 @@ const SITE_NAME = 'RedeCoop RS'
 const DEFAULT_TITLE = 'RedeCoop RS — Agricultura familiar e cooperativas no RS'
 const DEFAULT_DESCRIPTION =
   'RedeCoop RS conecta cooperativas da agricultura familiar e economia solidária no Rio Grande do Sul.'
-const DEFAULT_IMAGE = '/assets/imgs/bgs/banner-home.jpg'
+const DEFAULT_IMAGE = '/assets/imgs/og-default.jpg'
+const OG_IMAGE_WIDTH = '1200'
+const OG_IMAGE_HEIGHT = '630'
 
 export interface SeoProps {
   /** Título da aba/busca. O sufixo " | RedeCoop RS" é adicionado automaticamente. */
@@ -101,6 +103,8 @@ export function Seo({
     setMeta('property', 'og:description', description)
     setMeta('property', 'og:url', url)
     setMeta('property', 'og:image', imageUrl)
+    setMeta('property', 'og:image:width', OG_IMAGE_WIDTH)
+    setMeta('property', 'og:image:height', OG_IMAGE_HEIGHT)
 
     setMeta('property', 'article:published_time', article?.publishedTime)
     setMeta('property', 'article:modified_time', article?.modifiedTime)
@@ -117,9 +121,9 @@ export function Seo({
     setMeta('name', 'twitter:title', fullTitle)
     setMeta('name', 'twitter:description', description)
     setMeta('name', 'twitter:image', imageUrl)
+    setMeta('name', 'twitter:site', '@redecooprs')
 
     setJsonLd(jsonLd)
-    // jsonLd é recriado a cada render; comparar por conteúdo serializado evita reexecução infinita
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     title,

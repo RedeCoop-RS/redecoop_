@@ -104,6 +104,7 @@ export function BlogPostPage() {
   if (loading) {
     return (
       <>
+        <Seo title="Carregando artigo…" noindex path={slug ? `/blog/${slug}` : '/blog'} />
         <Navbar />
         <div className="py-32 text-center text-grey">Carregando artigo...</div>
         <Footer withMarginTop={false} />
@@ -114,6 +115,7 @@ export function BlogPostPage() {
   if (!post) {
     return (
       <>
+        <Seo title="Artigo não encontrado" noindex path={slug ? `/blog/${slug}` : '/blog'} />
         <Navbar />
         <div className="py-32 text-center">
           <h1 className="text-2xl font-bold">Artigo não encontrado</h1>

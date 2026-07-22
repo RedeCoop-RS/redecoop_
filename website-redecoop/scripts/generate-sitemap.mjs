@@ -1,25 +1,15 @@
 /**
- * Gera dist/sitemap.xml após o build.
- * Rotas estáticas + posts do blog buscados na Content API do Ghost.
- * Se o Ghost estiver inacessível no momento do build, gera só as rotas estáticas.
+ * Gera dist/sitemap.xml após o build / prerender.
+ * Rotas estáticas (seo-meta) + posts do Ghost.
  */
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { staticRoutes } from './seo-meta.mjs'
 
 const SITE_URL = (process.env.VITE_SITE_URL ?? 'https://redecooprs.com.br').replace(/\/$/, '')
 const GHOST_URL = (process.env.VITE_GHOST_URL ?? 'https://redecooprs.com.br').replace(/\/$/, '')
 const GHOST_KEY = process.env.VITE_GHOST_API_KEY ?? '0cd73f92f827f0cfa64be9919d'
-
-const staticRoutes = [
-  { path: '/', priority: '1.0', changefreq: 'weekly' },
-  { path: '/blog', priority: '0.9', changefreq: 'daily' },
-  { path: '/historia', priority: '0.7', changefreq: 'monthly' },
-  { path: '/governanca', priority: '0.7', changefreq: 'monthly' },
-  { path: '/servicos', priority: '0.7', changefreq: 'monthly' },
-  { path: '/cooperativismo-de-plataforma', priority: '0.7', changefreq: 'monthly' },
-  { path: '/contato', priority: '0.6', changefreq: 'monthly' },
-]
 
 async function fetchPosts() {
   const posts = []
@@ -67,7 +57,13 @@ async function main() {
   }
 
   const entries = [
-    ...staticRoutes.map((r) => urlEntry({ loc: `${SITE_URL}${r.path}`, changefreq: r.changefreq, priority: r.priority })),
+    ...staticRoutes.map((r) =>
+      urlEntry({
+        loc: `${SITE_URL}${r.path === '/' ? '/' : r.path}`,
+        changefreq: r.changefreq,
+        priority: r.priority,
+      }),
+    ),
     ...posts.map((p) =>
       urlEntry({
         loc: `${SITE_URL}/blog/${p.slug}`,

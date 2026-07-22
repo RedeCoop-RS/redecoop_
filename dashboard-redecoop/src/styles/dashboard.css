@@ -1575,6 +1575,7 @@
 }
 
 .coops-thumb {
+  position: relative;
   display: inline-flex;
   width: 2.75rem;
   height: 2.75rem;
@@ -1597,6 +1598,21 @@
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.coops-thumb__zoom {
+  position: absolute;
+  right: 0.15rem;
+  bottom: 0.15rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 999px;
+  background: rgba(0, 122, 53, 0.92);
+  color: #fff;
+  pointer-events: none;
 }
 
 .coops-link {

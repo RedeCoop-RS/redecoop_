@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { Analytics } from '@/components/Analytics'
 import { ScrollToTop } from '@/components/layout/ScrollToTop'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ModalProvider } from '@/contexts/ModalContext'
@@ -15,6 +16,7 @@ import { BlogPage } from '@/pages/BlogPage'
 import { BlogPostPage } from '@/pages/BlogPostPage'
 import { CompleteRegistrationPage } from '@/pages/CompleteRegistrationPage'
 import { ContactPage } from '@/pages/ContactPage'
+import { PrivacyPage } from '@/pages/PrivacyPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { RequireAuth } from '@/components/auth/RequireAuth'
 
@@ -23,6 +25,7 @@ export default function App() {
     <ErrorBoundary>
     <BrowserRouter>
       <ScrollToTop />
+      <Analytics />
       <AuthProvider>
         <ModalProvider>
           <Routes>
@@ -42,6 +45,7 @@ export default function App() {
             <Route path="/blog" element={<BlogPage />} />
             <Route path="/blog/:slug" element={<BlogPostPage />} />
             <Route path="/contato" element={<ContactPage />} />
+            <Route path="/privacidade" element={<PrivacyPage />} />
             <Route path="/completar-cadastro/:token" element={<CompleteRegistrationPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

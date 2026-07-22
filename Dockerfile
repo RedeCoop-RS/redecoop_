@@ -18,12 +18,14 @@ ARG VITE_SITE_URL=https://redecooprs.com.br
 ARG VITE_DASHBOARD_URL=https://dashboard.redecooprs.com.br
 ARG VITE_GHOST_URL=https://redecooprs.com.br
 ARG VITE_GHOST_API_KEY=0cd73f92f827f0cfa64be9919d
+ARG VITE_GA_MEASUREMENT_ID=
 ENV VITE_API_URL=$VITE_API_URL \
     VITE_STORAGE_URL=$VITE_STORAGE_URL \
     VITE_SITE_URL=$VITE_SITE_URL \
     VITE_DASHBOARD_URL=$VITE_DASHBOARD_URL \
     VITE_GHOST_URL=$VITE_GHOST_URL \
-    VITE_GHOST_API_KEY=$VITE_GHOST_API_KEY
+    VITE_GHOST_API_KEY=$VITE_GHOST_API_KEY \
+    VITE_GA_MEASUREMENT_ID=$VITE_GA_MEASUREMENT_ID
 COPY website-redecoop/package.json website-redecoop/package-lock.json ./
 RUN npm ci
 COPY website-redecoop/ .

@@ -15,6 +15,7 @@ const footerLinks = [
   { to: '/servicos', label: 'Serviços' },
   { to: '/blog', label: 'Blog' },
   { to: '/contato', label: 'Contato' },
+  { to: '/privacidade', label: 'Privacidade' },
 ]
 
 const contacts = [
@@ -144,6 +145,10 @@ export function Footer({ withMarginTop = true }: FooterProps) {
           <div className="site-footer__bottom">
             <p className="site-footer__copy">
               © {new Date().getFullYear()} RedeCoop RS — Todos os direitos reservados
+              {' · '}
+              <Link to="/privacidade" className="site-footer__link">
+                Privacidade
+              </Link>
             </p>
             <p className="site-footer__motto">Cooperativismo · Agricultura familiar · RS</p>
           </div>

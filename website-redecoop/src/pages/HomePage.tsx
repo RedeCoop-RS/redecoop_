@@ -3,13 +3,14 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
-import { Seo } from '@/components/Seo'
+import { Seo, seoDefaults } from '@/components/Seo'
 import { Button } from '@/components/ui/Button'
 import { CooperativesMapSection } from '@/components/map/CooperativesMapSection'
 import { HomeGovernanceSection } from '@/components/home/HomeGovernanceSection'
 import { HomeJoinSection } from '@/components/home/HomeJoinSection'
 import { HomeBlogSection } from '@/components/home/HomeBlogSection'
 import { useModal } from '@/contexts/ModalContext'
+import { environment } from '@/config/environment'
 import { ghostService } from '@/services/ghost.service'
 import { fadeIn } from '@/lib/motion'
 import type { GhostPost } from '@/types'
@@ -18,12 +19,19 @@ export function HomePage() {
   const { openModal } = useModal()
   const [posts, setPosts] = useState<GhostPost[]>([])
   const [loadingPosts, setLoadingPosts] = useState(true)
+  const [blogError, setBlogError] = useState(false)
 
   useEffect(() => {
     ghostService
       .getRecentPosts(3)
-      .then(setPosts)
-      .catch(() => {})
+      .then((data) => {
+        setPosts(data)
+        setBlogError(false)
+      })
+      .catch(() => {
+        setPosts([])
+        setBlogError(true)
+      })
       .finally(() => setLoadingPosts(false))
   }, [])
 
@@ -34,12 +42,31 @@ export function HomePage() {
       year: 'numeric',
     })
 
+  const siteUrl = environment.siteUrl.replace(/\/$/, '')
+
   return (
     <>
-      <Seo path="/" />
+      <Seo
+        path="/"
+        jsonLd={[
+          {
+            '@context': 'https://schema.org',
+            '@type': 'WebSite',
+            name: seoDefaults.siteName,
+            url: siteUrl,
+            description: seoDefaults.description,
+            publisher: {
+              '@type': 'Organization',
+              name: seoDefaults.siteName,
+              url: siteUrl,
+            },
+            inLanguage: 'pt-BR',
+          },
+        ]}
+      />
       <Navbar />
 
-      {/* Hero */}
+      <main>
       <section className="hero-home relative overflow-hidden pt-20 pb-12 lg:pt-24 lg:pb-14">
         <div className="absolute inset-0 bg-black/10" />
 
@@ -109,7 +136,13 @@ export function HomePage() {
 
       <HomeGovernanceSection />
       <HomeJoinSection />
-      <HomeBlogSection posts={posts} loading={loadingPosts} formatDate={formatDate} />
+      <HomeBlogSection
+        posts={posts}
+        loading={loadingPosts}
+        formatDate={formatDate}
+        error={blogError}
+      />
+      </main>
 
       <Footer withMarginTop={false} />
     </>

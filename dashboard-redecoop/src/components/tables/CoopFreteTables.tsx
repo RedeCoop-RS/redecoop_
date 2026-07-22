@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Pencil, Plus, Power, Truck, UserRound } from 'lucide-react'
+import { Pencil, Plus, Power, Truck, UserRound, ZoomIn } from 'lucide-react'
 import { cooperativeService, cooperativeLabel } from '@/services/cooperative.service'
 import { driverService } from '@/services/driver.service'
 import { vehicleService } from '@/services/vehicle.service'
@@ -208,10 +208,14 @@ export function DriversTable({
                         {img ? (
                           <button
                             type="button"
-                            className="business-link"
+                            className="coops-thumb"
+                            title="Ampliar imagem"
                             onClick={() => setImageSrc(`${environment.storageUrl}${img}`)}
                           >
-                            Ver
+                            <img src={`${environment.storageUrl}${img}`} alt={row.name} loading="lazy" />
+                            <span className="coops-thumb__zoom" aria-hidden>
+                              <ZoomIn size={12} strokeWidth={2.5} />
+                            </span>
                           </button>
                         ) : (
                           '—'
