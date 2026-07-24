@@ -5,8 +5,10 @@ import { Footer } from '@/components/layout/Footer'
 import { Seo } from '@/components/Seo'
 import { Button } from '@/components/ui/Button'
 import { OptimizedImage } from '@/components/ui/OptimizedImage'
+import { JoinRedeCoopCta } from '@/components/JoinRedeCoopCta'
 import { slideInViewDelayed } from '@/lib/motion'
 import '@/styles/services.css'
+import '@/styles/blog.css'
 
 const services = [
   {
@@ -185,6 +187,10 @@ export function ServicesPage() {
             </div>
           </div>
         </section>
+      </div>
+
+      <div className="svc-inner pb-12 pt-2">
+        <JoinRedeCoopCta className="join-cta--page" />
       </div>
 
       <Footer withMarginTop={false} />

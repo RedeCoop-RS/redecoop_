@@ -6,9 +6,11 @@ import toast from 'react-hot-toast'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
 import { Seo, seoDefaults } from '@/components/Seo'
+import { JoinRedeCoopCta } from '@/components/JoinRedeCoopCta'
 import { environment } from '@/config/environment'
 import { ghostService, rewriteGhostAssetUrl, rewriteGhostHtml } from '@/services/ghost.service'
 import type { GhostPost } from '@/types'
+import '@/styles/blog.css'
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
@@ -212,6 +214,8 @@ export function BlogPostPage() {
             className="prose prose-lg max-w-none mt-8 prose-headings:text-ink prose-a:text-green prose-img:rounded-2xl"
             dangerouslySetInnerHTML={{ __html: safeHtml }}
           />
+
+          <JoinRedeCoopCta />
 
           <div className="mt-12 pt-8 border-t border-gray-100">
             <p className="flex items-center gap-2 text-sm font-semibold text-grey-dark mb-4">

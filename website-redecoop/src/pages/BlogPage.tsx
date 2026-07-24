@@ -5,6 +5,7 @@ import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
 import { Seo } from '@/components/Seo'
 import { OptimizedImage } from '@/components/ui/OptimizedImage'
+import { JoinRedeCoopCta } from '@/components/JoinRedeCoopCta'
 import { environment } from '@/config/environment'
 import { ghostService, rewriteGhostAssetUrl } from '@/services/ghost.service'
 import type { GhostPost, GhostTag } from '@/types'
@@ -375,14 +376,14 @@ export function BlogPage() {
               </div>
             )}
 
-            {exploreMode && !searchQuery && !activeTagSlug && (
+            {exploreMode && gridPosts.length > 0 && (
               <div className="explore-head">
                 <h3 className="explore-head__title">Explorar todos</h3>
                 <p className="explore-head__hint">Passe o mouse nos cartões · role as seções por tema</p>
               </div>
             )}
 
-            {gridPosts.length === 0 && (
+            {gridPosts.length === 0 && !featuredPost && (
               <div className="blog-empty">
                 <p className="mb-2">Nenhum artigo corresponde à pesquisa ou ao filtro.</p>
                 <button type="button" className="btn-editorial-green" onClick={clearFilters}>
@@ -458,6 +459,10 @@ export function BlogPage() {
             )}
           </div>
         )}
+
+        <div className="blog-verge__inner">
+          <JoinRedeCoopCta className="join-cta--page" />
+        </div>
       </main>
 
       <Footer withMarginTop={false} />
