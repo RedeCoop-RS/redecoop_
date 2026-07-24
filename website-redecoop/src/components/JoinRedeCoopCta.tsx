@@ -15,13 +15,11 @@ export function JoinRedeCoopCta({ className = '' }: JoinRedeCoopCtaProps) {
         Toda grande rede começa com uma decisão simples: crescer junto.
       </p>
       <p className="join-cta__body">
-        A RedeCoop existe porque produtores e cooperativas do RS acreditaram que juntos vão mais
-        longe — e o próximo capítulo pode ser o seu.
+        A RedeCoop existe porque cooperativas da agricultura familiar e reforma agrária
+        acreditaram que juntos vão mais longe.
       </p>
       <p className="join-cta__split">
-        Se você é produtor, tenha uma cooperativa que trabalha por você.
-        <br />
-        Se representa uma cooperativa, some forças com quem já entende o campo.
+        Fortaleça sua cooperativa, faça parte da RedeCoop.
       </p>
       <Button
         type="button"
