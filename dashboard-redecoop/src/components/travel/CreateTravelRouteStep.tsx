@@ -65,12 +65,12 @@ export function CreateTravelRouteStep({
     }
   }
 
-  const validateNextStop = (load: number, unload: number) => {
-    if (load + currentLoad > maxWeight) {
+  const validateNextStop = (load: number, unload: number, baseLoad = currentLoad) => {
+    if (load + baseLoad > maxWeight) {
       toast.error('Esta parada ultrapassa a carga máxima do caminhão.')
       return false
     }
-    if (unload > currentLoad + load) {
+    if (unload > baseLoad + load) {
       toast.error('Você não pode descarregar mais do que a carga carregada.')
       return false
     }
@@ -93,7 +93,7 @@ export function CreateTravelRouteStep({
           return
         }
         const initialLoad = Number(fromLoad) || 0
-        if (!validateNextStop(initialLoad, 0)) return
+        if (!validateNextStop(initialLoad, 0, 0)) return
 
         nextStops.push({
           address: from.address,
@@ -107,7 +107,8 @@ export function CreateTravelRouteStep({
 
       const load = Number(toLoad) || 0
       const unload = Number(toUnload) || 0
-      if (!validateNextStop(load, unload)) return
+      const baseLoad = nextStops.reduce((sum, stop) => sum + stop.load - stop.unload, 0)
+      if (!validateNextStop(load, unload, baseLoad)) return
 
       const last = nextStops[nextStops.length - 1]
       const distance = await calcDistance(last.coordinates, to.coordinates)

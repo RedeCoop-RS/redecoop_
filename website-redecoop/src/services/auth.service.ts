@@ -116,11 +116,14 @@ export const authService = {
   },
 
   async verifyCode(code: string, email: string) {
-    const response = await apiFetch<{ data: boolean }>('/auth/password-reset/check-code', {
-      method: 'POST',
-      body: JSON.stringify({ code, email }),
-    })
-    return response.data
+    const response = await apiFetch<{ status: boolean; message: string }>(
+      '/auth/password-reset/check-code',
+      {
+        method: 'POST',
+        body: JSON.stringify({ code, email }),
+      },
+    )
+    return response.status === true
   },
 
   async newPassword(password: string, code: string, email: string) {

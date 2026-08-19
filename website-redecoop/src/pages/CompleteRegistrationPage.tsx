@@ -5,8 +5,10 @@ import { Footer } from '@/components/layout/Footer'
 import { Seo } from '@/components/Seo'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { PasswordField } from '@/components/ui/PasswordField'
 import { cooperativeService } from '@/services/cooperative.service'
 import { locationService } from '@/services/location.service'
+import { isPasswordValid } from '@/lib/password'
 import type { City, Cooperative } from '@/types'
 
 export function CompleteRegistrationPage() {
@@ -56,6 +58,10 @@ export function CompleteRegistrationPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    if (step === 1 && !isPasswordValid(form.password)) {
+      toast.error('Senha fraca: use letras maiúsculas, minúsculas e número ou símbolo.')
+      return
+    }
     if (step < 3) {
       setStep(step + 1)
       return
@@ -140,7 +146,12 @@ export function CompleteRegistrationPage() {
                   <Input label="Associados (M)" type="number" value={form.maleAssociates} onChange={(e) => setForm({ ...form, maleAssociates: Number(e.target.value) })} />
                   <Input label="Associadas (F)" type="number" value={form.femaleAssociates} onChange={(e) => setForm({ ...form, femaleAssociates: Number(e.target.value) })} />
                 </div>
-                <Input label="Senha" type="password" required minLength={6} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+                <PasswordField
+                  label="Senha"
+                  required
+                  value={form.password}
+                  onChange={(password) => setForm({ ...form, password })}
+                />
               </>
             )}
 

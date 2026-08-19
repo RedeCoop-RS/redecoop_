@@ -3,8 +3,11 @@ import toast from 'react-hot-toast'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { PasswordField } from '@/components/ui/PasswordField'
 import { useModal } from '@/contexts/ModalContext'
 import { authService } from '@/services/auth.service'
+import { ApiError } from '@/lib/api'
+import { isPasswordValid } from '@/lib/password'
 
 export function ResetPasswordModal() {
   const { modal, openModal, closeModal } = useModal()
@@ -15,6 +18,12 @@ export function ResetPasswordModal() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+
+    if (!isPasswordValid(password)) {
+      toast.error('Senha fraca: use letras maiúsculas, minúsculas e número ou símbolo.')
+      return
+    }
+
     setLoading(true)
     try {
       const valid = await authService.verifyCode(code, email)
@@ -25,8 +34,14 @@ export function ResetPasswordModal() {
       await authService.newPassword(password, code, email)
       toast.success('Senha alterada com sucesso!')
       openModal('login')
-    } catch {
-      toast.error('Erro ao redefinir senha.')
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const data = err.data as { errors?: { password?: string } } | undefined
+        const passwordError = data?.errors?.password
+        toast.error(passwordError ?? err.message ?? 'Erro ao redefinir senha.')
+      } else {
+        toast.error('Erro ao redefinir senha.')
+      }
     } finally {
       setLoading(false)
     }
@@ -41,13 +56,11 @@ export function ResetPasswordModal() {
           value={code}
           onChange={(e) => setCode(e.target.value)}
         />
-        <Input
+        <PasswordField
           label="Nova senha"
-          type="password"
           required
-          minLength={6}
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={setPassword}
         />
         <Button type="submit" disabled={loading} className="w-full">
           {loading ? 'Salvando...' : 'Redefinir senha'}

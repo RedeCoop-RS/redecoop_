@@ -3,9 +3,11 @@ import toast from 'react-hot-toast'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { PasswordField } from '@/components/ui/PasswordField'
 import { useModal } from '@/contexts/ModalContext'
 import { authService } from '@/services/auth.service'
 import { locationService } from '@/services/location.service'
+import { isPasswordValid } from '@/lib/password'
 import type { City } from '@/types'
 
 export function RegisterModal() {
@@ -38,6 +40,11 @@ export function RegisterModal() {
     e.preventDefault()
     if (step < 3) {
       setStep(step + 1)
+      return
+    }
+
+    if (!isPasswordValid(form.password)) {
+      toast.error('Senha fraca: use letras maiúsculas, minúsculas e número ou símbolo.')
       return
     }
 
@@ -119,8 +126,25 @@ export function RegisterModal() {
 
         {step === 3 && (
           <>
-            <Input label="Senha" type="password" required minLength={6} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-            <Input label="Confirmar senha" type="password" required value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} />
+            <PasswordField
+              label="Senha"
+              required
+              value={form.password}
+              onChange={(password) => setForm({ ...form, password })}
+            />
+            <Input
+              label="Confirmar senha"
+              type="password"
+              required
+              autoComplete="new-password"
+              value={form.confirmPassword}
+              onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+              error={
+                form.confirmPassword && form.password !== form.confirmPassword
+                  ? 'As senhas não coincidem.'
+                  : undefined
+              }
+            />
           </>
         )}
 
