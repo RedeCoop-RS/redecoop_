@@ -2,11 +2,15 @@
 
 # ── API (NestJS) ──
 FROM node:20-alpine AS api-builder
+# bcrypt is a native addon: if GitHub prebuilds are unreachable, node-gyp
+# compiles from source (needs python3/make/g++).
+RUN apk add --no-cache python3 make g++
 WORKDIR /app
 COPY api-redecoop/package.json api-redecoop/package-lock.json ./
 RUN npm ci
 COPY api-redecoop/ .
 RUN npm run build
+RUN npm prune --omit=dev
 
 # ── Website ──
 # URLs HTTPS entram no bundle no build — sem HTTP/IP (Mixed Content no browser)
@@ -74,8 +78,8 @@ RUN apk add --no-cache nginx wget \
     && mkdir -p /var/lib/nginx/tmp/client_body /var/lib/nginx/logs /tmp/client_body
 
 WORKDIR /app/api
-COPY api-redecoop/package.json api-redecoop/package-lock.json ./
-RUN npm ci --omit=dev
+COPY --from=api-builder /app/package.json /app/package-lock.json ./
+COPY --from=api-builder /app/node_modules ./node_modules
 COPY --from=api-builder /app/dist ./dist
 RUN mkdir -p upload logs
 

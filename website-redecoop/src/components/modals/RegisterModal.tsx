@@ -8,6 +8,7 @@ import { useModal } from '@/contexts/ModalContext'
 import { authService } from '@/services/auth.service'
 import { locationService } from '@/services/location.service'
 import { isPasswordValid } from '@/lib/password'
+import { ApiError } from '@/lib/api'
 import type { City } from '@/types'
 
 export function RegisterModal() {
@@ -23,7 +24,7 @@ export function RegisterModal() {
     address: '',
     cep: '',
     number: '',
-    cityId: 0,
+    cityId: '' as number | '',
     neighborhood: '',
     password: '',
     confirmPassword: '',
@@ -33,13 +34,26 @@ export function RegisterModal() {
     locationService
       .getCitiesByState(43)
       .then((data) => setCities(Array.isArray(data) ? data : []))
-      .catch(() => setCities([]))
+      .catch(() => {
+        setCities([])
+        toast.error('Não foi possível carregar as cidades. Tente novamente.')
+      })
   }, [])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    if (step === 2 && !form.cityId) {
+      toast.error('Selecione a cidade.')
+      return
+    }
     if (step < 3) {
       setStep(step + 1)
+      return
+    }
+
+    if (!form.cityId) {
+      toast.error('Selecione a cidade.')
+      setStep(2)
       return
     }
 
@@ -70,8 +84,8 @@ export function RegisterModal() {
       toast.success('Cadastro realizado! Faça login para continuar.')
       openModal('login')
       setStep(1)
-    } catch {
-      toast.error('Erro ao cadastrar. Verifique os dados.')
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Erro ao cadastrar. Verifique os dados.')
     } finally {
       setLoading(false)
     }
@@ -112,10 +126,12 @@ export function RegisterModal() {
               <select
                 required
                 value={form.cityId}
-                onChange={(e) => setForm({ ...form, cityId: Number(e.target.value) })}
+                onChange={(e) =>
+                  setForm({ ...form, cityId: e.target.value ? Number(e.target.value) : '' })
+                }
                 className="mt-1.5 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm"
               >
-                <option value={0}>Selecione...</option>
+                <option value="">Selecione...</option>
                 {cities.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}

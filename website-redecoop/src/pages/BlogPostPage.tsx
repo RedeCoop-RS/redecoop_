@@ -8,9 +8,11 @@ import { Footer } from '@/components/layout/Footer'
 import { Seo, seoDefaults } from '@/components/Seo'
 import { JoinRedeCoopCta } from '@/components/JoinRedeCoopCta'
 import { environment } from '@/config/environment'
-import { ghostService, rewriteGhostAssetUrl, rewriteGhostHtml } from '@/services/ghost.service'
+import { ghostService, rewriteGhostAssetUrl, rewriteGhostHtml, isGhostCaptionPlaceholder } from '@/services/ghost.service'
+import { formatGhostTagName, publicTags } from '@/lib/blog'
 import type { GhostPost } from '@/types'
 import '@/styles/blog.css'
+import '@/styles/ghost-content.css'
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
@@ -44,7 +46,7 @@ function buildPostJsonLd(post: GhostPost, url: string, image: string): object[] 
           url: `${environment.siteUrl.replace(/\/$/, '')}/assets/imgs/logo.png`,
         },
       },
-      keywords: post.tags?.map((t) => t.name).join(', ') || undefined,
+      keywords: post.tags?.map((t) => formatGhostTagName(t.name, t.slug)).join(', ') || undefined,
     },
     {
       '@context': 'https://schema.org',
@@ -128,9 +130,34 @@ export function BlogPostPage() {
     )
   }
 
-  const safeHtml = DOMPurify.sanitize(rewriteGhostHtml(post.html))
+  const safeHtml = DOMPurify.sanitize(rewriteGhostHtml(post.html), {
+    ADD_TAGS: ['iframe', 'figure', 'figcaption', 'video', 'audio', 'source', 'picture', 'track'],
+    ADD_ATTR: [
+      'allow',
+      'allowfullscreen',
+      'frameborder',
+      'scrolling',
+      'target',
+      'rel',
+      'controls',
+      'autoplay',
+      'loop',
+      'muted',
+      'playsinline',
+      'poster',
+      'preload',
+      'width',
+      'height',
+      'style',
+      'loading',
+      'decoding',
+      'srcset',
+      'sizes',
+    ],
+  })
   const postUrl = `${environment.siteUrl.replace(/\/$/, '')}/blog/${post.slug}`
   const shareImage = rewriteGhostAssetUrl(post.og_image || post.feature_image) || seoDefaults.image
+  const publicPostTags = publicTags(post.tags)
 
   return (
     <>
@@ -143,7 +170,7 @@ export function BlogPostPage() {
         article={{
           publishedTime: post.published_at,
           modifiedTime: post.updated_at,
-          tags: post.tags?.map((t) => t.name),
+          tags: publicPostTags.map((t) => formatGhostTagName(t.name, t.slug)),
           author: post.authors?.[0]?.name,
         }}
         jsonLd={buildPostJsonLd(post, postUrl, shareImage)}
@@ -155,82 +182,65 @@ export function BlogPostPage() {
 
       <Navbar />
 
-      {post.feature_image && (
-        <div className="h-64 md:h-96 overflow-hidden">
-          <img
-            src={rewriteGhostAssetUrl(post.feature_image)}
-            alt={post.feature_image_alt || post.title}
-            className="w-full h-full object-cover"
-          />
-        </div>
-      )}
-
-      <article className="py-12 px-4 bg-section-paper">
-        <div className="mx-auto max-w-3xl">
-          <Link to="/blog" className="inline-flex items-center gap-2 text-sm text-green hover:gap-3 transition-all mb-8">
+      <article className="blog-article">
+        <div className="blog-article__inner">
+          <Link to="/blog" className="blog-article__back">
             <ArrowLeft size={16} /> Voltar ao blog
           </Link>
 
-          {post.tags && post.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-4">
-              {post.tags.map((t) => (
-                <span key={t.id} className="rounded-full bg-green/10 text-green text-xs font-semibold px-3 py-1">
-                  {t.name}
-                </span>
-              ))}
-            </div>
+          {post.feature_image && (
+            <figure className="blog-article__media">
+              <img
+                src={rewriteGhostAssetUrl(post.feature_image)}
+                alt={post.feature_image_alt || post.title}
+              />
+              {post.feature_image_caption && !isGhostCaptionPlaceholder(post.feature_image_caption) && (
+                <figcaption>{post.feature_image_caption}</figcaption>
+              )}
+            </figure>
           )}
 
-          <h1 className="font-display text-3xl md:text-4xl lg:text-5xl font-bold text-ink leading-tight">
-            {post.title}
-          </h1>
+          <h1 className="blog-article__title">{post.title}</h1>
 
           {post.custom_excerpt && (
-            <p className="mt-4 text-lg text-grey-dark leading-relaxed">{post.custom_excerpt}</p>
+            <p className="blog-article__lead">{post.custom_excerpt}</p>
           )}
 
-          <div className="flex items-center gap-4 mt-8 pb-8 border-b border-gray-100 text-sm text-grey">
-            {post.authors?.[0] && (
-              <div className="flex items-center gap-2">
-                {post.authors[0].profile_image && (
-                  <img
-                    src={rewriteGhostAssetUrl(post.authors[0].profile_image)}
-                    alt={post.authors[0].name}
-                    className="w-8 h-8 rounded-full"
-                  />
-                )}
-                <span className="font-medium text-ink">{post.authors[0].name}</span>
-              </div>
-            )}
-            <span>{formatDate(post.published_at)}</span>
-            {post.reading_time && (
-              <span className="flex items-center gap-1">
-                <Clock size={14} /> {post.reading_time} min
-              </span>
+          <div className="blog-article__meta">
+            {post.authors?.[0] && <span>{post.authors[0].name}</span>}
+            {post.authors?.[0] && <span aria-hidden="true">·</span>}
+            <time dateTime={post.published_at}>{formatDate(post.published_at)}</time>
+            {post.reading_time ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <span className="blog-article__read">
+                  <Clock size={14} /> {post.reading_time} min
+                </span>
+              </>
+            ) : null}
+            {publicPostTags.length > 0 && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>{publicPostTags.map((t) => formatGhostTagName(t.name, t.slug)).join(' · ')}</span>
+              </>
             )}
           </div>
 
           <div
-            className="prose prose-lg max-w-none mt-8 prose-headings:text-ink prose-a:text-green prose-img:rounded-2xl"
+            className="blog-article__body"
             dangerouslySetInnerHTML={{ __html: safeHtml }}
           />
 
           <JoinRedeCoopCta />
 
-          <div className="mt-12 pt-8 border-t border-gray-100">
-            <p className="flex items-center gap-2 text-sm font-semibold text-grey-dark mb-4">
+          <div className="blog-article__share">
+            <p>
               <Share2 size={16} /> Compartilhar
             </p>
-            <div className="flex gap-3">
-              <button onClick={() => share('whatsapp')} className="rounded-full bg-green/10 text-green px-4 py-2 text-sm font-medium hover:bg-green/20">
-                WhatsApp
-              </button>
-              <button onClick={() => share('twitter')} className="rounded-full bg-green/10 text-green px-4 py-2 text-sm font-medium hover:bg-green/20">
-                Twitter
-              </button>
-              <button onClick={() => share('copy')} className="rounded-full bg-green/10 text-green px-4 py-2 text-sm font-medium hover:bg-green/20">
-                Copiar link
-              </button>
+            <div>
+              <button type="button" onClick={() => share('whatsapp')}>WhatsApp</button>
+              <button type="button" onClick={() => share('twitter')}>Twitter</button>
+              <button type="button" onClick={() => share('copy')}>Copiar link</button>
             </div>
           </div>
         </div>

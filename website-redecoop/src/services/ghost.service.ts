@@ -23,10 +23,15 @@ export function rewriteGhostAssetUrl(url?: string): string {
 }
 
 export function rewriteGhostHtml(html: string): string {
+  if (!html) return ''
   return html
-    .replace(/src="\/content\//g, `src="${environment.ghostUrl}/content/`)
-    .replace(/src="\/media\//g, `src="${environment.ghostUrl}/media/`)
-    .replace(/href="\/content\//g, `href="${environment.ghostUrl}/content/`)
+    .replace(/(src|href)="\/content\//g, `$1="${environment.ghostUrl}/content/`)
+    .replace(/(src|href)="\/media\//g, `$1="${environment.ghostUrl}/media/`)
+}
+
+export function isGhostCaptionPlaceholder(caption?: string) {
+  if (!caption) return true
+  return /add a caption/i.test(caption.trim())
 }
 
 export const ghostService = {

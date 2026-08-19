@@ -61,7 +61,7 @@
 }
 
 .svc-hero__title {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: "Inter", system-ui, sans-serif;
   font-size: clamp(2.5rem, 7vw, 4rem);
   font-weight: 700;
   color: #fff;
@@ -155,7 +155,7 @@
 }
 
 .svc-card__title {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: "Inter", system-ui, sans-serif;
   font-size: 1.2rem;
   font-weight: 700;
   color: #1a1a2e;
@@ -271,7 +271,7 @@
 }
 
 .svc-voices__title {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: "Inter", system-ui, sans-serif;
   font-size: clamp(1.75rem, 4vw, 2.5rem);
   font-weight: 700;
   color: #1a1a2e;
@@ -344,7 +344,7 @@
 
 .svc-voice__mark {
   display: block;
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: "Inter", system-ui, sans-serif;
   font-size: 3rem;
   font-weight: 700;
   line-height: 0.8;

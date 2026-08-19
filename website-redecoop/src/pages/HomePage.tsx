@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
@@ -17,13 +17,25 @@ import type { GhostPost } from '@/types'
 
 export function HomePage() {
   const { openModal } = useModal()
+  const location = useLocation()
+  const navigate = useNavigate()
   const [posts, setPosts] = useState<GhostPost[]>([])
   const [loadingPosts, setLoadingPosts] = useState(true)
   const [blogError, setBlogError] = useState(false)
 
   useEffect(() => {
+    const from = (location.state as { from?: string } | null)?.from
+    if (!from) return
+    openModal('login', {
+      typeUser: 'customer',
+      redirectToCooperatives: from.startsWith('/cooperativas'),
+    })
+    navigate('.', { replace: true, state: {} })
+  }, [location.state, openModal, navigate])
+
+  useEffect(() => {
     ghostService
-      .getRecentPosts(3)
+      .getRecentPosts(2)
       .then((data) => {
         setPosts(data)
         setBlogError(false)
@@ -34,13 +46,6 @@ export function HomePage() {
       })
       .finally(() => setLoadingPosts(false))
   }, [])
-
-  const formatDate = (date: string) =>
-    new Date(date).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    })
 
   const siteUrl = environment.siteUrl.replace(/\/$/, '')
 
@@ -136,12 +141,7 @@ export function HomePage() {
 
       <HomeGovernanceSection />
       <HomeJoinSection />
-      <HomeBlogSection
-        posts={posts}
-        loading={loadingPosts}
-        formatDate={formatDate}
-        error={blogError}
-      />
+      <HomeBlogSection posts={posts} loading={loadingPosts} error={blogError} />
       </main>
 
       <Footer withMarginTop={false} />

@@ -145,6 +145,7 @@ export interface GhostPost {
   custom_excerpt?: string
   feature_image?: string
   feature_image_alt?: string
+  feature_image_caption?: string
   published_at: string
   updated_at: string
   reading_time?: number

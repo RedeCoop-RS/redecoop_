@@ -11,6 +11,7 @@ import { cooperativeService, cooperativeLabel } from '@/services/cooperative.ser
 import { driverService } from '@/services/driver.service'
 import { vehicleService } from '@/services/vehicle.service'
 import { travelService, travelOfferService } from '@/services/travel.service'
+import { ApiError } from '@/lib/api'
 import { CreateTravelRouteStep, type TravelStopDraft } from '@/components/travel/CreateTravelRouteStep'
 import {
   OriginalRoutePreview,
@@ -341,7 +342,9 @@ export function TravelViewModal({
         setTravel(data)
         setLocalRoutes(data.travelRoutes ?? data.routes ?? [])
       })
-      .catch(() => toast.error('Erro ao carregar viagem'))
+      .catch((err) =>
+        toast.error(err instanceof ApiError ? err.message : 'Erro ao carregar viagem'),
+      )
       .finally(() => setLoading(false))
   }
 

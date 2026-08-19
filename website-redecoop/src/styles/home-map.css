@@ -65,7 +65,7 @@
   display: inline-block;
   position: relative;
   color: #e30613;
-  font-family: 'Caveat', cursive;
+  font-family: "Inter", system-ui, sans-serif;
   font-size: 22px;
   font-weight: 700;
   transform: rotate(-20deg);

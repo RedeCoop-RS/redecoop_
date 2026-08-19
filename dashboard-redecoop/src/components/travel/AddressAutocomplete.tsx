@@ -18,6 +18,7 @@ export function AddressAutocomplete({
   const [options, setOptions] = useState<MapPlace[]>([])
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
 
@@ -40,16 +41,22 @@ export function AddressAutocomplete({
     if (text.length < 2) {
       setOptions([])
       setOpen(false)
+      setError('')
       return
     }
     timer.current = setTimeout(async () => {
       setLoading(true)
+      setError('')
       try {
         const results = await mapService.autoComplete(text)
         setOptions(results)
         setOpen(results.length > 0)
+        if (results.length === 0) {
+          setError('Nenhum endereço encontrado.')
+        }
       } catch {
         setOptions([])
+        setError('Não foi possível buscar endereços. Tente novamente.')
       } finally {
         setLoading(false)
       }
@@ -75,6 +82,9 @@ export function AddressAutocomplete({
         onFocus={() => options.length > 0 && setOpen(true)}
       />
       {loading && <span className="travel-address-field__hint">Buscando...</span>}
+      {!loading && error && (
+        <span className="travel-address-field__hint travel-address-field__hint--error">{error}</span>
+      )}
       {open && (
         <ul className="travel-address-field__list" role="listbox">
           {options.map((place) => (

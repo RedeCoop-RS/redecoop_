@@ -60,7 +60,7 @@
 }
 
 .history-hero__title {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: "Inter", system-ui, sans-serif;
   font-size: clamp(2.5rem, 7vw, 4rem);
   font-weight: 700;
   color: #fff;
@@ -130,7 +130,7 @@
 }
 
 .history-logistics__title {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: "Inter", system-ui, sans-serif;
   font-size: clamp(1.875rem, 4vw, 2.75rem);
   font-weight: 700;
   color: #1a1a2e;
@@ -200,7 +200,7 @@
 }
 
 .history-timeline__title {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: "Inter", system-ui, sans-serif;
   font-size: clamp(1.75rem, 4vw, 2.5rem);
   font-weight: 700;
   color: #1a1a2e;
@@ -483,7 +483,7 @@
 }
 
 .history-stat__value {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: "Inter", system-ui, sans-serif;
   font-size: 2rem;
   font-weight: 700;
   color: #009640;

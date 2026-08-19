@@ -73,7 +73,7 @@ export class AuthService {
       userData = user;
     }
 
-    if (!user.driver && !user.cooperative && !user.visitant) {
+    if (user.role !== UserRole.ADMIN && !user.driver && !user.cooperative && !user.visitant) {
       throw new NotFoundException('Papel do usuário não encontrado');
     }
 

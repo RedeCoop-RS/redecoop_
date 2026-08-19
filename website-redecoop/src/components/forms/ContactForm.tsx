@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { publicService } from '@/services/public.service'
+import { ApiError } from '@/lib/api'
 
 interface ContactFormProps {
   showHeader?: boolean
@@ -26,8 +27,8 @@ export function ContactForm({ showHeader = true }: ContactFormProps) {
       await publicService.sendContact(form)
       toast.success('Mensagem enviada com sucesso!')
       setForm({ name: '', email: '', phone: '', subject: '', message: '' })
-    } catch {
-      toast.error('Erro ao enviar mensagem. Tente novamente.')
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Erro ao enviar mensagem. Tente novamente.')
     } finally {
       setLoading(false)
     }

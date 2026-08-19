@@ -4085,6 +4085,10 @@
   color: #9ca3af;
 }
 
+.travel-address-field__hint--error {
+  color: #b42318;
+}
+
 .travel-address-field__list {
   position: absolute;
   z-index: 30;

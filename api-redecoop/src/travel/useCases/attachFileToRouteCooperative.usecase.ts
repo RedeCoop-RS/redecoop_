@@ -24,9 +24,16 @@ export class AttachFileToRouteCooperativeUseCase {
       throw new NotFoundException('Rota encontrada no trajeto');
     }
 
+    if (!file?.filename) {
+      throw new BadRequestException('Nenhum arquivo foi enviado.');
+    }
+
+    const offerCooperativeId = travelRoute.offer?.cooperativeId;
+    const travelCooperativeId = travelRoute.travel?.cooperativeId;
+
     if (
-      travelRoute.offer.cooperativeId !== user.sub &&
-      travelRoute.travel.cooperativeId !== user.sub &&
+      offerCooperativeId !== user.sub &&
+      travelCooperativeId !== user.sub &&
       user.role !== UserRole.ADMIN
     ) {
       throw new BadRequestException(

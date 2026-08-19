@@ -153,6 +153,7 @@ export class CommonTravelController {
   }
 
   @Post('attach-file-route/:routeId')
+  @Roles(UserRole.ADMIN, UserRole.COOPERATIVE)
   @UseInterceptors(FileInterceptor('file', multerConfig))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Anexar arquivo na rota' })

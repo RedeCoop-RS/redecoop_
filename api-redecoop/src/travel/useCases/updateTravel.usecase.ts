@@ -69,6 +69,11 @@ export class UpdateTravelUseCase {
 
         if (stop.order !== 1) {
           const previousStop = stops.find((s) => s.order === stop.order - 1);
+          if (!previousStop?.coordinates) {
+            throw new BadRequestException(
+              'Ordem das paradas inválida. Verifique a sequência do trajeto.',
+            );
+          }
           distance = await this.mapsService.getRouteDistance(
             [previousStop.coordinates.longitude, previousStop.coordinates.latitude],
             [stop.coordinates.longitude, stop.coordinates.latitude],

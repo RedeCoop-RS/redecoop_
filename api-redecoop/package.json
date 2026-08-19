@@ -24,14 +24,14 @@
     "restart:pm2": "pm2 restart redecoop-backend",
     "delete:pm2": "pm2 delete redecoop-backend",
     "logs:pm2": "pm2 logs redecoop-backend",
-    "seed:dev": "ts-node ./node_modules/typeorm-extension/bin/cli.cjs seed:run -d ./src/_common/database/seeds/seed.ts",
+    "seed:dev": "ts-node --project tsconfig.base.json ./node_modules/typeorm-extension/bin/cli.cjs seed:run -d ./src/_common/database/seeds/seed.ts",
     "seed:prod": "node ./node_modules/typeorm-extension/bin/cli.cjs seed:run -d dist/_common/database/seeds/seed.js",
     "typeorm": "typeorm-ts-node-commonjs",
     "schema:sync": "npx typeorm-ts-node-commonjs schema:sync",
     "typeorm:cache": "npx typeorm-ts-node-commonjs cache:clear",
     "migration:create": "typeorm migration:create ./src/migrations/schema-update",
-    "migration:generate": "npx ts-node -r tsconfig-paths/register node_modules/typeorm/cli.js migration:generate ./src/migrations/schema-update -d ./src/_common/database/config.ts",
-    "migration:run": "npx ts-node -r tsconfig-paths/register node_modules/typeorm/cli.js migration:run -d  ./src/_common/database/config.ts"
+    "migration:generate": "npx ts-node --project tsconfig.base.json -r tsconfig-paths/register node_modules/typeorm/cli.js migration:generate ./src/migrations/schema-update -d ./src/_common/database/config.ts",
+    "migration:run": "npx ts-node --project tsconfig.base.json -r tsconfig-paths/register node_modules/typeorm/cli.js migration:run -d  ./src/_common/database/config.ts"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.0.2",

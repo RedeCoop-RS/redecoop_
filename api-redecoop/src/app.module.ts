@@ -43,12 +43,21 @@ import { ValueRangeModule } from './valueRange/valueRange.module';
 import { WeightRangeModule } from './weightRange/weightRange.module';
 import { DistanceRangeModule } from './distanceRange/distanceRange.module';
 import { CafModule } from './caf/caf.module';
+import './_common/database/config';
+
+function requireJwtSecret(): string {
+  const secret = process.env.JWT_SECRET?.trim();
+  if (!secret) {
+    throw new Error('JWT_SECRET is required. Set it in the environment before starting the API.');
+  }
+  return secret;
+}
 
 @Module({
   imports: [
     JwtModule.register({
-      secret: process.env.JWT_SECRET || '!!hard!to-guess_secret_redeco0p',
-      signOptions: { expiresIn: '1h' }, // Tempo de expiração padrão do token
+      secret: requireJwtSecret(),
+      signOptions: { expiresIn: '1h' },
       global: true,
     }),
     WinstonModule.forRoot(winstonLoggerConfig),

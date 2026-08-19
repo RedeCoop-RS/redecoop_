@@ -47,7 +47,7 @@
 }
 
 .coop-profile__heading {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: "Inter", system-ui, sans-serif;
   font-size: clamp(1.35rem, 2.8vw, 1.875rem);
   font-weight: 700;
   color: #009640;
@@ -266,7 +266,7 @@
 }
 
 .coop-catalog__title {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: "Inter", system-ui, sans-serif;
   font-size: clamp(1.5rem, 3vw, 2rem);
   font-weight: 700;
   color: #1a1a2e;

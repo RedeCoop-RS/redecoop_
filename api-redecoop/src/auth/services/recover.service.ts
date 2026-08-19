@@ -41,15 +41,8 @@ export class AuthRecoverService {
       expiresAt,
     });
 
-    let name: string | undefined;
-
-    if (user.role == 'COOPERATIVE' || user.role == 'ADMIN') {
-      name = user.cooperative.companyName;
-    }
-
-    if (user.role == 'VISITANT') {
-      name = user.visitant.name;
-    }
+    const name =
+      user.cooperative?.companyName ?? user.visitant?.name ?? user.username;
 
     const dataEmail = {
       to: user.username,
@@ -88,7 +81,7 @@ export class AuthRecoverService {
 
     const passwordHashed = await this.hashService.hashPassword(password);
     await this.userRepository.update({ id: user.id }, { password: passwordHashed });
-    this.resetPasswordRepository.delete({ userId: resetCode.userId });
+    await this.resetPasswordRepository.delete({ userId: resetCode.userId });
   }
 
   async validateResetCode(email: string, token: string) {

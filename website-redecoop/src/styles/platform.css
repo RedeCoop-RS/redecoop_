@@ -61,7 +61,7 @@
 }
 
 .plat-hero__title {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: "Inter", system-ui, sans-serif;
   font-size: clamp(2.25rem, 6vw, 3.75rem);
   font-weight: 700;
   color: #fff;
@@ -98,7 +98,7 @@
 }
 
 .plat-services__title {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: "Inter", system-ui, sans-serif;
   font-size: clamp(1.75rem, 4vw, 2.5rem);
   font-weight: 700;
   color: #1a1a2e;
@@ -171,7 +171,7 @@
 }
 
 .plat-service__name {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: "Inter", system-ui, sans-serif;
   font-size: clamp(1.25rem, 2.5vw, 1.5rem);
   font-weight: 700;
   color: #1a1a2e;
@@ -229,7 +229,7 @@
 }
 
 .plat-join__intro-title {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: "Inter", system-ui, sans-serif;
   font-size: clamp(2rem, 5vw, 3rem);
   font-weight: 700;
   color: rgba(255, 255, 255, 0.45);
@@ -279,7 +279,7 @@
 }
 
 .plat-step__num {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: "Inter", system-ui, sans-serif;
   font-size: clamp(2rem, 4vw, 2.75rem);
   font-weight: 700;
   color: #009640;

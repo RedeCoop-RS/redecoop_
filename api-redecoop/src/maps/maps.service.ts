@@ -31,6 +31,9 @@ export class MapsService {
   }
 
   async autoComplete(address: string) {
+    if (!this.apiUrl || !this.accessToken) {
+      throw new ServiceUnavailableException('API de consulta de endereço está indisponível');
+    }
     const url = `${this.apiUrl}/search/geocode/v6/forward?q=${encodeURIComponent(address)}&proximity=ip&access_token=${this.accessToken}`;
     return await this.httpService.axiosRef
       .get(url)

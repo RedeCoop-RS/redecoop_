@@ -1,10 +1,12 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Public } from '@/_common/decorators/skipAuth.decorator';
 import { ContactVisitantDto } from '../Dtos/contact-visitant.dto';
 import { SendContactEmailUseCase } from '../use-cases/send-contact-email.use-case';
 
 @ApiTags('Public')
 @Controller('public')
+@Public()
 export class PublicVisitantController {
   constructor(
     private readonly sendContactEmailUseCase: SendContactEmailUseCase

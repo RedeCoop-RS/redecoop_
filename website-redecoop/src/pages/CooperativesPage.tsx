@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CheckCircle, FileSpreadsheet } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
 import { Seo } from '@/components/Seo'
@@ -38,13 +39,23 @@ export function CooperativesPage() {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
+  const [catalogError, setCatalogError] = useState(false)
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards')
   const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
-    cooperativeService.getCooperatives().then(setCooperatives).catch(() => {})
-    productService.getCategories().then(setCategories).catch(() => {})
-    productService.getTypes().then(setTypes).catch(() => {})
+    cooperativeService
+      .getCooperatives()
+      .then(setCooperatives)
+      .catch(() => toast.error('Não foi possível carregar as cooperativas.'))
+    productService
+      .getCategories()
+      .then(setCategories)
+      .catch(() => toast.error('Não foi possível carregar as categorias.'))
+    productService
+      .getTypes()
+      .then(setTypes)
+      .catch(() => toast.error('Não foi possível carregar os tipos de produto.'))
   }, [])
 
   useEffect(() => {
@@ -54,7 +65,13 @@ export function CooperativesPage() {
 
   useEffect(() => {
     if (selectedId && selectedId !== ALL_ID) {
-      cooperativeService.getCooperative(selectedId).then(setCooperative).catch(() => setCooperative(null))
+      cooperativeService
+        .getCooperative(selectedId)
+        .then(setCooperative)
+        .catch(() => {
+          setCooperative(null)
+          toast.error('Não foi possível carregar os dados da cooperativa.')
+        })
     } else {
       setCooperative(null)
     }
@@ -71,10 +88,14 @@ export function CooperativesPage() {
         typeId,
       })
       .then((res) => {
+        setCatalogError(false)
         setProducts(Array.isArray(res.data) ? res.data : [])
         setTotalPages(res.meta?.totalPages ?? 1)
       })
-      .catch(() => setProducts([]))
+      .catch(() => {
+        setProducts([])
+        setCatalogError(true)
+      })
       .finally(() => setLoading(false))
   }, [selectedId, page, categoryId, typeId])
 
@@ -272,6 +293,16 @@ export function CooperativesPage() {
                   </div>
                 )}
               </motion.div>
+            ) : catalogError ? (
+              <motion.p
+                key="catalog-error"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="coop-empty"
+              >
+                Não foi possível carregar o catálogo. Tente atualizar a página.
+              </motion.p>
             ) : products.length === 0 ? (
               <motion.p
                 key="empty"

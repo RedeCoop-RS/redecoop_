@@ -19,7 +19,7 @@
   --color-sidebar: #122a1c;
   --color-sidebar-hover: #1a3d28;
   --font-sans: "Inter", system-ui, sans-serif;
-  --font-display: "Playfair Display", Georgia, serif;
+  --font-display: "Inter", system-ui, sans-serif;
 }
 
 @layer base {

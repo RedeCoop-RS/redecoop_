@@ -1,6 +1,7 @@
-import { Public } from '@/_common/decorators/skipAuth.decorator';
-import { Controller, Delete, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
+import { Controller, Delete, Get, Param, ParseIntPipe } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Roles } from '@/_common/decorators/role.decorator';
+import { UserRole } from '@/User/entities/user.entity';
 import { AccessRequestService } from '../accessRequest.service';
 import { AccessRequestDto } from '../Dtos/accessRequest.dto';
 import { PaginatedSwagger } from '@/_common/decorators/paginateSwagger.decorator';
@@ -10,7 +11,7 @@ import { PaginateQuery } from '@/_common/utils/paginate/paginate';
 @ApiBearerAuth()
 @ApiTags('Requests')
 @Controller('root/request')
-@Public()
+@Roles(UserRole.ADMIN)
 export class AdminAccessRequestController {
   constructor(private readonly AccessRequestService: AccessRequestService) {}
 

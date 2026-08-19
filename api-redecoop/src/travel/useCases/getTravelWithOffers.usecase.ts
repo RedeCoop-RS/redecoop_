@@ -22,18 +22,13 @@ export class GetTravelWithOffersUseCase {
       .leftJoinAndSelect('travel.driver', 'driver')
       .leftJoinAndSelect('travel.vehicle', 'vehicle')
       .leftJoinAndSelect('vehicle.type', 'vehicleType')
-      .leftJoinAndSelect(
-        'travel.travelRoutes',
-        'route',
-        'route.offer.id IS NULL OR offers.status = :statusConfirmed',
-        { statusConfirmed: OfferStatus.Confirmed },
-      )
+      .leftJoinAndSelect('travel.travelRoutes', 'route')
       .leftJoinAndSelect('route.offer', 'offer')
       .leftJoinAndSelect('offer.cooperative', 'cooperative')
       .leftJoinAndSelect('route.routeProduct', 'routeProduct')
       .leftJoinAndSelect('routeProduct.product', 'product')
       .leftJoinAndSelect('offers.business', 'business')
-      .andWhere('travel.id = :travelId', { travelId:id })
+      .andWhere('travel.id = :travelId', { travelId: id })
       .select([
         'travel.id',
         'travel.status',
@@ -43,12 +38,13 @@ export class GetTravelWithOffersUseCase {
         'route.address',
         'route.distance',
         'route.order',
-        'route.offer',
+        'route.offerId',
         'route.coopAttachment',
         'route.loadingWeight',
         'route.unloadingWeight',
         'offer.id',
         'offer.cooperativeId',
+        'offer.status',
         'cooperative.id',
         'cooperative.companyName',
         'cooperative.fantasyName',
@@ -71,7 +67,7 @@ export class GetTravelWithOffersUseCase {
 
     if (user.role !== UserRole.ADMIN) {
       queryBuilder.andWhere(
-        '(travel.cooperative.id = :cooperativeId OR (travel.cooperative.id != :cooperativeId AND offers.cooperative.id = :cooperativeId))',
+        '(travel.cooperativeId = :cooperativeId OR offers.cooperativeId = :cooperativeId)',
         { cooperativeId: user.sub },
       );
     }
@@ -80,6 +76,14 @@ export class GetTravelWithOffersUseCase {
 
     if (!travel) {
       throw new NotFoundException('Viagem não encontrada, ou não esta mais disponivel');
+    }
+
+    if (user.role !== UserRole.ADMIN) {
+      travel.travelRoutes = (travel.travelRoutes ?? []).filter((route) => {
+        if (!route.offerId) return true;
+        if (route.offer?.status === OfferStatus.Confirmed) return true;
+        return route.offer?.cooperativeId === user.sub;
+      });
     }
 
     return plainToInstance(TravelDto, travel);

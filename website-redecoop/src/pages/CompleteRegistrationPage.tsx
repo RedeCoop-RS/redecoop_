@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { Footer } from '@/components/layout/Footer'
 import { Seo } from '@/components/Seo'
@@ -9,6 +9,7 @@ import { PasswordField } from '@/components/ui/PasswordField'
 import { cooperativeService } from '@/services/cooperative.service'
 import { locationService } from '@/services/location.service'
 import { isPasswordValid } from '@/lib/password'
+import { ApiError } from '@/lib/api'
 import type { City, Cooperative } from '@/types'
 
 export function CompleteRegistrationPage() {
@@ -35,7 +36,7 @@ export function CompleteRegistrationPage() {
     number: '',
     neighborhood: '',
     complement: '',
-    cityId: 0,
+    cityId: '' as number | '',
     serviceCityIds: [] as number[],
   })
 
@@ -53,7 +54,10 @@ export function CompleteRegistrationPage() {
         }))
       })
       .catch(() => setValid(false))
-    locationService.getCitiesByState(43).then(setCities).catch(() => {})
+    locationService
+      .getCitiesByState(43)
+      .then(setCities)
+      .catch(() => toast.error('Não foi possível carregar as cidades.'))
   }, [token])
 
   const handleSubmit = async (e: FormEvent) => {
@@ -68,6 +72,10 @@ export function CompleteRegistrationPage() {
     }
 
     if (!token) return
+    if (!form.cityId) {
+      toast.error('Selecione a cidade.')
+      return
+    }
     setLoading(true)
     try {
       const fd = new FormData()
@@ -81,8 +89,8 @@ export function CompleteRegistrationPage() {
       })
       await cooperativeService.completeRegistration(token, fd)
       toast.success('Cadastro completado com sucesso!')
-    } catch {
-      toast.error('Erro ao completar cadastro.')
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Erro ao completar cadastro.')
     } finally {
       setLoading(false)
     }
@@ -95,8 +103,21 @@ export function CompleteRegistrationPage() {
   if (valid === false) {
     return (
       <>
-        <div className="py-32 text-center px-4">
-          <h1 className="text-2xl font-bold text-red">Token inválido ou expirado</h1>
+        <Seo title="Completar Cadastro" noindex />
+        <div className="py-32 text-center px-4 max-w-lg mx-auto">
+          <h1 className="text-2xl font-bold text-ink">Este link não está mais disponível</h1>
+          <p className="text-sm text-grey-dark mt-3 leading-relaxed">
+            O cadastro da cooperativa agora é feito pela equipe RedeCoop. Se você recebeu este
+            convite, fale com a gente para concluir o acesso.
+          </p>
+          <div className="flex justify-center gap-4 mt-6">
+            <Link to="/contato" className="text-green font-semibold hover:underline">
+              Fale conosco
+            </Link>
+            <Link to="/" className="text-grey-dark hover:underline">
+              Voltar ao início
+            </Link>
+          </div>
         </div>
         <Footer />
       </>
@@ -177,10 +198,12 @@ export function CompleteRegistrationPage() {
                   <select
                     required
                     value={form.cityId}
-                    onChange={(e) => setForm({ ...form, cityId: Number(e.target.value) })}
+                    onChange={(e) =>
+                      setForm({ ...form, cityId: e.target.value ? Number(e.target.value) : '' })
+                    }
                     className="mt-1.5 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm"
                   >
-                    <option value={0}>Selecione...</option>
+                    <option value="">Selecione...</option>
                     {cities.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>

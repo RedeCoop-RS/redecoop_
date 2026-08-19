@@ -1,4 +1,4 @@
-const tsConfig = require('./tsconfig.json');
+const tsConfig = require('./tsconfig.base.json');
 const tsConfigPaths = require('tsconfig-paths');
 
 const baseUrl = './dist';

@@ -15,7 +15,7 @@
   --color-cream: #fafcf8;
   --color-ink: #1a1a2e;
   --font-sans: "Inter", system-ui, sans-serif;
-  --font-display: "Playfair Display", Georgia, serif;
+  --font-display: "Inter", system-ui, sans-serif;
 }
 
 @layer base {
@@ -251,62 +251,12 @@
     @apply bg-green;
   }
 
-  .home-blog-link {
-    @apply rounded-xl border-2 border-green/20 px-5 py-3 text-sm font-bold text-green transition-all duration-300 hover:bg-green hover:text-white hover:border-green hover:shadow-lg hover:shadow-green/20;
-  }
-
-  .home-blog-tag {
-    @apply inline-block text-[10px] font-bold uppercase tracking-wider bg-green-soft text-green px-3 py-1 rounded-full mb-3;
-  }
-
-  .home-blog-featured {
-    @apply grid grid-cols-1 md:grid-cols-2 gap-0 rounded-3xl overflow-hidden bg-white border border-green/10 shadow-xl shadow-green/5;
-    transition:
-      transform var(--duration-smooth) var(--ease-smooth),
-      box-shadow var(--duration-smooth) var(--ease-smooth);
-  }
-
-  .home-blog-featured:hover {
-    @apply -translate-y-1 shadow-2xl shadow-green/10;
-  }
-
-  .home-blog-featured__media {
-    @apply h-56 md:h-auto md:min-h-[280px] overflow-hidden;
-  }
-
-  .home-blog-featured__body {
-    @apply p-8 md:p-10 flex flex-col justify-center;
-  }
-
-  .home-blog-card {
-    @apply rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-md flex flex-col;
-    transition:
-      transform var(--duration-smooth) var(--ease-smooth),
-      box-shadow var(--duration-smooth) var(--ease-smooth);
-  }
-
   .hero-home {
     background-color: #007a35;
     background-image: url(/assets/imgs/bgs/banner-home.jpg);
     background-position: center;
     background-size: cover;
     background-repeat: no-repeat;
-  }
-
-  .home-blog-card:hover {
-    @apply -translate-y-1 shadow-xl shadow-green/10;
-  }
-
-  .home-blog-card__media {
-    @apply h-48 overflow-hidden shrink-0;
-  }
-
-  .home-blog-card__body {
-    @apply p-6 flex flex-col flex-1;
-  }
-
-  .home-blog-card__footer {
-    @apply flex items-center justify-between pt-4 mt-auto border-t border-gray-100;
   }
 
   .transition-smooth {
