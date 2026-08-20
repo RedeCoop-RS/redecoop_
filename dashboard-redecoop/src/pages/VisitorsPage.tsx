@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
   Check,
@@ -44,7 +45,10 @@ function formatDate(value?: string) {
 export function VisitorsPage() {
   const { confirm } = useModal()
   const { count: pendingRequests, refresh: refreshPendingCount } = usePendingRequests()
-  const [tab, setTab] = useState<'visitants' | 'requests'>('visitants')
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState<'visitants' | 'requests'>(
+    searchParams.get('tab') === 'requests' ? 'requests' : 'visitants',
+  )
   const [search, setSearch] = useState('')
 
   const [loadingVisitant, setLoadingVisitant] = useState(false)

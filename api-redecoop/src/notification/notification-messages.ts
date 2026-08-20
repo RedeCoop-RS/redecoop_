@@ -1,8 +1,8 @@
 import moment from 'moment-timezone';
 
 export const NotificationMessages = {
-  NEW_MESSAGE: (cooperativeName: string, messagePreview: string) =>
-    `<b>Mensagem</b> de ${cooperativeName}: "${messagePreview.length > 80 ? messagePreview.slice(0, 80) + '...' : messagePreview}".`,
+  NEW_MESSAGE: (cooperativeName: string, messagePreview: string, conversationId: number) =>
+    `<b>Mensagem</b> de ${cooperativeName}: "${messagePreview.length > 80 ? messagePreview.slice(0, 80) + '...' : messagePreview}".<cid>${conversationId}</cid>`,
 
   NEW_PROPOSAL_TRAVEL: (date: Date) =>
     `Você recebeu uma proposta na sua viagem do dia <date>${date.toISOString()}</date>`,

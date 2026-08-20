@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { NotificationGateway } from './notification.gateway';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Notification, NotificationType } from './entities/notification.entity';
@@ -7,6 +7,7 @@ import { plainToInstance } from 'class-transformer';
 import { NotificationDto } from './Dtos/notification.dto';
 import { UserLoggedDto } from '@/_common/dto/userLogged.dto';
 import { paginate, Paginated, PaginateQuery } from '@/_common/utils/paginate/paginate';
+import { UserRole } from '@/User/entities/user.entity';
 
 @Injectable()
 export class NotificationService {
@@ -36,26 +37,43 @@ export class NotificationService {
   }
 
   async countNotificationUnread(userLogged: UserLoggedDto): Promise<number> {
-    const totalUnread = await this.notificationRepository.count({
+    return this.notificationRepository.count({
       where: { cooperative: { id: userLogged.sub }, isRead: false },
     });
-
-    return totalUnread;
   }
 
-  async markAsRead(notificationId: number): Promise<void> {
-    await this.notificationRepository.update(
-      { id: notificationId },
-      {
-        isRead: true,
-      },
-    );
+  async markAsRead(notificationId: number, userLogged: UserLoggedDto): Promise<void> {
+    await this.findOwnedOrFail(notificationId, userLogged);
+    await this.notificationRepository.update({ id: notificationId }, { isRead: true });
+  }
+
+  async dismiss(notificationId: number, userLogged: UserLoggedDto): Promise<{ success: true }> {
+    const notification = await this.findOwnedOrFail(notificationId, userLogged);
+    await this.notificationRepository.remove(notification);
+    return { success: true };
   }
 
   async sendNotification(type: NotificationType, content: string, cooperativeId: number) {
     const notification = await this.saveNotification(type, content, cooperativeId);
     const transformData = plainToInstance(NotificationDto, notification);
     this.notificationGateway.sendNotification(cooperativeId, transformData);
+  }
+
+  private async findOwnedOrFail(notificationId: number, userLogged: UserLoggedDto) {
+    const notification = await this.notificationRepository.findOne({
+      where: { id: notificationId },
+      relations: ['cooperative'],
+    });
+
+    if (!notification) {
+      throw new NotFoundException('Notificação não encontrada');
+    }
+
+    if (userLogged.role !== UserRole.ADMIN && notification.cooperative?.id !== userLogged.sub) {
+      throw new ForbiddenException('Você não pode alterar esta notificação');
+    }
+
+    return notification;
   }
 
   private async saveNotification(

@@ -1,4 +1,6 @@
-import type { Notification } from '@/types'
+import { getBasePath } from '@/config/navigation'
+import type { Conversation, Notification } from '@/types'
+import { UserRole } from '@/types'
 
 const NOTIFICATION_ICONS: Record<string, string> = {
   new_message: '/assets/imgs/icons/notifications/new_message.svg',
@@ -24,6 +26,68 @@ export function normalizeNotification(raw: Record<string, unknown>): Notificatio
   }
 }
 
+export function parseNotificationMeta(message: string): {
+  conversationId?: number
+  senderName?: string
+} {
+  const cidMatch = message.match(/<cid>(\d+)<\/cid>/i)
+  const conversationId = cidMatch ? Number(cidMatch[1]) : undefined
+  const plain = stripNotificationTags(message)
+  const senderMatch = plain.match(/Mensagem de (.+?):/i)
+  return {
+    conversationId: Number.isFinite(conversationId) && conversationId! > 0 ? conversationId : undefined,
+    senderName: senderMatch?.[1]?.trim() || undefined,
+  }
+}
+
+function normalizeName(value: string) {
+  return value.trim().toLowerCase()
+}
+
+export function matchConversationId(conversations: Conversation[], senderName?: string) {
+  if (!senderName) return undefined
+  const target = normalizeName(senderName)
+  const match = conversations.find((conversation) => {
+    const names = [
+      conversation.initiatorCooperative?.companyName,
+      conversation.initiatorCooperative?.fantasyName,
+      conversation.participantCooperative?.companyName,
+      conversation.participantCooperative?.fantasyName,
+    ]
+      .filter((name): name is string => Boolean(name))
+      .map(normalizeName)
+    return names.includes(target)
+  })
+  return match?.id
+}
+
+export function getNotificationPath(
+  role: UserRole,
+  notification: Notification,
+  conversationId?: number,
+) {
+  const basePath = getBasePath(role)
+  const type = notification.type
+  if (type === 'new_message' || conversationId) {
+    return conversationId
+      ? `${basePath}/mensagens?conversation=${conversationId}`
+      : `${basePath}/mensagens`
+  }
+  if (type === 'travel_offer') return `${basePath}/viagens-disponiveis`
+  if (type === 'business_desk') return `${basePath}/balcao-de-negocios`
+  if (type === 'collective_purchase') return `${basePath}/compras-coletivas`
+  return `${basePath}/mensagens`
+}
+
+function stripNotificationTags(message: string) {
+  return message
+    .replace(/<cid>\d+<\/cid>/gi, '')
+    .replace(/<date>(.*?)<\/date>/gi, '$1')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 export function formatNotificationMessage(message: string): string {
   const withDates = message.replace(/<date>(.*?)<\/date>/g, (_, value) => {
     const date = new Date(value)
@@ -32,6 +96,7 @@ export function formatNotificationMessage(message: string): string {
   })
 
   return withDates
+    .replace(/<cid>\d+<\/cid>/gi, '')
     .replace(/<\/?span>/g, '')
     .replace(/<b>/g, '<strong>')
     .replace(/<\/b>/g, '</strong>')

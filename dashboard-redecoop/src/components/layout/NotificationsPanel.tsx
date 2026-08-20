@@ -14,7 +14,7 @@ interface NotificationsPanelProps {
   notifications: Notification[]
   unreadCount: number
   onClose: () => void
-  onMarkAsRead: (id: number) => void
+  onOpen: (notification: Notification) => void
 }
 
 export function NotificationsPanel({
@@ -22,7 +22,7 @@ export function NotificationsPanel({
   notifications,
   unreadCount,
   onClose,
-  onMarkAsRead,
+  onOpen,
 }: NotificationsPanelProps) {
   return (
     <AnimatePresence>
@@ -56,7 +56,9 @@ export function NotificationsPanel({
                   <p className="notifications-panel__subtitle">
                     {unreadCount > 0
                       ? `${unreadCount} não lida${unreadCount === 1 ? '' : 's'}`
-                      : 'Tudo em dia'}
+                      : notifications.length === 0
+                        ? 'Tudo em dia'
+                        : 'Clique para abrir'}
                   </p>
                 </div>
               </div>
@@ -87,7 +89,7 @@ export function NotificationsPanel({
                     <button
                       key={notification.id}
                       type="button"
-                      onClick={() => !notification.read && onMarkAsRead(notification.id)}
+                      onClick={() => onOpen(notification)}
                       className={`notification-card ${notification.read ? 'notification-card--read' : 'notification-card--unread'}`}
                     >
                       <div className="notification-card__icon">

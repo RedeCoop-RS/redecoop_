@@ -69,7 +69,7 @@ export class SendMessageUseCase {
 
     await this.notificationService.sendNotification(
       NotificationType.NEW_MESSAGE,
-      NotificationMessages.NEW_MESSAGE(sendingCooperative.companyName, content),
+      NotificationMessages.NEW_MESSAGE(sendingCooperative.companyName, content, conversationId),
       receivingCooperative.id,
     );
 

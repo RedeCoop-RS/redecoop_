@@ -1,6 +1,6 @@
 import { Roles } from '@/_common/decorators/role.decorator';
 import { UserRole } from '@/User/entities/user.entity';
-import { Controller, Get, Param, ParseIntPipe, Put } from '@nestjs/common';
+import { Controller, Delete, Get, Param, ParseIntPipe, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { NotificationService } from '../notification.service';
 import { UserLogged } from '@/_common/decorators/userLogged.decorator';
@@ -28,7 +28,12 @@ export class CommonNotificationController {
   }
 
   @Put('mark-as-read/:id')
-  async markAsRead(@Param('id', ParseIntPipe) id: number) {
-    return await this.notificationService.markAsRead(id);
+  async markAsRead(@Param('id', ParseIntPipe) id: number, @UserLogged() user: UserLoggedDto) {
+    return await this.notificationService.markAsRead(id, user);
+  }
+
+  @Delete('delete/:id')
+  async dismiss(@Param('id', ParseIntPipe) id: number, @UserLogged() user: UserLoggedDto) {
+    return await this.notificationService.dismiss(id, user);
   }
 }

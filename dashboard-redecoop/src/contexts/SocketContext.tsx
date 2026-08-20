@@ -20,6 +20,7 @@ interface SocketContextValue {
   unreadCount: number
   refreshNotifications: () => void
   markAsRead: (id: number) => Promise<void>
+  dismissNotification: (id: number) => Promise<void>
 }
 
 const SocketContext = createContext<SocketContextValue | null>(null)
@@ -49,6 +50,20 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const markAsRead = useCallback(
     async (id: number) => {
       await notificationService.markAsRead(id)
+      await refreshNotifications()
+    },
+    [refreshNotifications],
+  )
+
+  const dismissNotification = useCallback(
+    async (id: number) => {
+      try {
+        await notificationService.delete(id)
+      } catch {
+        await notificationService.markAsRead(id)
+      }
+      setNotifications((current) => current.filter((item) => item.id !== id))
+      setUnreadCount((current) => Math.max(0, current - 1))
       await refreshNotifications()
     },
     [refreshNotifications],
@@ -97,7 +112,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
   return (
     <SocketContext.Provider
-      value={{ notifications, unreadCount, refreshNotifications, markAsRead }}
+      value={{ notifications, unreadCount, refreshNotifications, markAsRead, dismissNotification }}
     >
       {children}
     </SocketContext.Provider>

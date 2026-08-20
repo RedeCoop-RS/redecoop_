@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import { conversationService } from '@/services/product.service'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -35,6 +36,8 @@ export function MessagesPage() {
 
   const [viewId, setViewId] = useState<number | null>(null)
   const [newMessageOpen, setNewMessageOpen] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const conversationParam = searchParams.get('conversation')
 
   useEffect(() => {
     conversationService.recentContacts().then(setContacts)
@@ -58,6 +61,20 @@ export function MessagesPage() {
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    const id = Number(conversationParam)
+    if (!Number.isFinite(id) || id <= 0) return
+    setViewId(id)
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current)
+        next.delete('conversation')
+        return next
+      },
+      { replace: true },
+    )
+  }, [conversationParam, setSearchParams])
 
   return (
     <div className="messages-page">

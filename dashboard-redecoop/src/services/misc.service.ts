@@ -35,6 +35,10 @@ export const notificationService = {
   markAsRead(id: number) {
     return apiFetch(`/common/notification/mark-as-read/${id}`, { method: 'PUT' })
   },
+
+  delete(id: number) {
+    return apiFetch(`/common/notification/delete/${id}`, { method: 'DELETE' })
+  },
 }
 
 export const configService = {
