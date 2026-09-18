@@ -39,10 +39,14 @@ export class SendEmailVisitantUseCase {
       contentType: file.mimetype
     }));
 
+    const inbox = process.env.CONTACT_INBOX || 'contato@redecooprs.com.br';
+
     await this.emailService.sendEmail({
-      to: 'redecoop.rs@gmail.com',
-      subject: `[Contato Visitante] ${emailData.subject}`,
+      to: inbox,
+      from: `RedeCoop RS <${inbox}>`,
+      subject: `Contato de visitante: ${emailData.subject}`,
       body: emailContent,
+      replyTo: `"${(visitant.name ?? '').replace(/"/g, '')}" <${visitant.email}>`,
       attachments
     });
 

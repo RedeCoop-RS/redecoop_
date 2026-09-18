@@ -13,6 +13,7 @@ import {
   Sprout,
   Truck,
   Users,
+  // Globe,
   Handshake,
 } from 'lucide-react'
 import { UserRole } from '@/types'
@@ -55,6 +56,7 @@ const adminNav: SidebarItem[] = [
   },
   { name: 'Mensagens', url: '/admin/mensagens', icon: MessageSquare },
   { name: 'Visitantes e solicitações', url: '/admin/visitantes-e-solicitacoes', icon: Users },
+  // { name: 'Audiência do site', url: '/admin/audiencia-do-site', icon: Globe },
   { name: 'Balcão de Negócios', url: '/admin/balcao-de-negocios', icon: BarChart3 },
   { name: 'Relatórios', url: '/admin/relatorio', icon: FileText },
   { type: 'divider' },

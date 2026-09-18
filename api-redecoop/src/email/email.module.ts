@@ -9,8 +9,9 @@ import { MailerModule } from '@nestjs-modules/mailer';
       useFactory: async () => ({
         defaults: { from: process.env.SMTP_FROM },
         transport: {
-          port: Number(process.env.SMTP_PORT || 25),
+          port: Number(process.env.SMTP_PORT || 465),
           host: process.env.SMTP_HOST,
+          secure: Number(process.env.SMTP_PORT || 465) === 465,
           auth: {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS,

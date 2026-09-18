@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
 import { Seo } from '@/components/Seo'
+import { environment } from '@/config/environment'
 
 export function PrivacyPage() {
   return (
@@ -16,7 +17,7 @@ export function PrivacyPage() {
       <main className="mx-auto max-w-3xl px-4 py-16 lg:px-8 lg:py-20">
         <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-green">Legal</p>
         <h1 className="mb-4 text-3xl font-bold text-ink lg:text-4xl">Política de Privacidade</h1>
-        <p className="mb-10 text-sm text-grey">Última atualização: 21 de julho de 2026</p>
+        <p className="mb-10 text-sm text-grey">Última atualização: 15 de setembro de 2026</p>
 
         <div className="space-y-8 text-[15px] leading-relaxed text-grey-dark">
           <section>
@@ -43,8 +44,10 @@ export function PrivacyPage() {
                 necessários à autenticação e ao uso do painel/plataforma.
               </li>
               <li>
-                <strong>Navegação:</strong> dados técnicos (IP, navegador, páginas visitadas)
-                quando utilizamos cookies ou ferramentas de medição de audiência (ex.: Google
+                <strong>Navegação:</strong> identificador anônimo no navegador, páginas visitadas,
+                tempo de permanência, profundidade de rolagem e posição aproximada de cliques,
+                para entender o uso do site. Não usamos esses dados para identificar você. Também
+                podemos usar cookies ou ferramentas de medição de audiência (ex.: Google
                 Analytics), se ativadas.
               </li>
               <li>
@@ -75,9 +78,12 @@ export function PrivacyPage() {
           <section>
             <h2 className="mb-2 text-lg font-semibold text-ink">5. Cookies e métricas</h2>
             <p>
-              Utilizamos cookies essenciais ao funcionamento do site (ex.: sessão). Se o Google
-              Analytics (GA4) estiver configurado, cookies de medição ajudam a entender o uso do
-              site. Você pode bloquear cookies não essenciais nas configurações do navegador.
+              Utilizamos cookies essenciais ao funcionamento do site (ex.: sessão). O site também
+              registra métricas anônimas de audiência (visitas, telas mais vistas e mapa de calor
+              de cliques) no painel da RedeCoop, com base no interesse legítimo de melhorar o
+              serviço. Se o Google Analytics (GA4) estiver configurado, cookies de medição extras
+              podem ser usados. Você pode bloquear cookies não essenciais nas configurações do
+              navegador ou ativar “Não rastrear” (DNT).
             </p>
           </section>
 
@@ -104,8 +110,8 @@ export function PrivacyPage() {
             <h2 className="mb-2 text-lg font-semibold text-ink">8. Contato do encarregado</h2>
             <p>
               Para exercer direitos ou tirar dúvidas sobre privacidade, fale conosco:{' '}
-              <a href="mailto:redecoop.rs@gmail.com.br" className="text-green underline">
-                redecoop.rs@gmail.com.br
+              <a href={`mailto:${environment.contactEmail}`} className="text-green underline">
+                {environment.contactEmail}
               </a>{' '}
               · WhatsApp{' '}
               <a

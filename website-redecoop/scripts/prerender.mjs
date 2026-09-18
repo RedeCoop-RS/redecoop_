@@ -30,6 +30,7 @@ const PUBLIC = join(__dirname, '..', 'public')
 const SITE_URL = (process.env.VITE_SITE_URL ?? 'https://redecooprs.com.br').replace(/\/$/, '')
 const GHOST_URL = (process.env.VITE_GHOST_URL ?? 'https://redecooprs.com.br').replace(/\/$/, '')
 const GHOST_KEY = process.env.VITE_GHOST_API_KEY ?? '0cd73f92f827f0cfa64be9919d'
+const CONTACT_EMAIL = process.env.VITE_CONTACT_EMAIL ?? 'contato@redecooprs.com.br'
 
 function escapeHtml(s) {
   return String(s)
@@ -209,7 +210,7 @@ async function main() {
     '@type': 'LocalBusiness',
     name: SITE_NAME,
     url: `${SITE_URL}/contato`,
-    email: 'redecoop.rs@gmail.com.br',
+    email: CONTACT_EMAIL,
     telephone: '+55-51-98131-0336',
     address: {
       '@type': 'PostalAddress',

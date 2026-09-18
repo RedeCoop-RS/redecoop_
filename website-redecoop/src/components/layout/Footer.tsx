@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Mail, MapPin, Phone } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { environment } from '@/config/environment'
 import '@/styles/footer.css'
 
 interface FooterProps {
@@ -22,8 +23,8 @@ const contacts = [
   {
     icon: Mail,
     label: 'E-mail',
-    value: 'redecoop.rs@gmail.com.br',
-    href: 'mailto:redecoop.rs@gmail.com.br',
+    value: environment.contactEmail,
+    href: `mailto:${environment.contactEmail}`,
   },
   {
     icon: Phone,

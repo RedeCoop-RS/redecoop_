@@ -7,6 +7,7 @@ import { ConversationService } from '@/conversation/services/conversation.servic
 import { plainToInstance } from 'class-transformer';
 import { BusinessDto } from '../Dtos/business.dto';
 import { UserLoggedDto } from '@/_common/dto/userLogged.dto';
+import { MessageStatus } from '@/conversation/entities/conversationMessage.entity';
 
 @Injectable()
 export class ListBusinessForAdminUseCase {
@@ -58,9 +59,14 @@ export class ListBusinessForAdminUseCase {
     const { filter } = query;
 
     if (filter && filter.awaitingMediation && filter.awaitingMediation == 'true') {
-      queryBuilder.andWhere('conversation.awaitingMediation = :awaitingMediation', {
-        awaitingMediation: true,
-      });
+      queryBuilder.andWhere(
+        `EXISTS (
+          SELECT 1 FROM conversation_message cm
+          WHERE cm.conversation_id = conversation.id
+            AND cm.status = :pendingStatus
+        )`,
+        { pendingStatus: MessageStatus.Pending },
+      );
     }
 
     if (filter && filter.status) {

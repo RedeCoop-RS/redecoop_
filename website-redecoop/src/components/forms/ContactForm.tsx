@@ -10,6 +10,27 @@ interface ContactFormProps {
   showHeader?: boolean
 }
 
+function contactErrorMessage(err: unknown) {
+  if (!(err instanceof ApiError) || !err.data || typeof err.data !== 'object') {
+    return 'Erro ao enviar mensagem. Tente novamente.'
+  }
+  const errors = (err.data as { errors?: Record<string, string> }).errors
+  const first = errors ? Object.values(errors)[0] : undefined
+  if (first?.includes('message must be longer')) {
+    return 'A mensagem precisa ter pelo menos 10 caracteres.'
+  }
+  if (first?.includes('phone')) {
+    return 'Informe um telefone válido (mínimo 8 dígitos).'
+  }
+  if (first?.includes('subject')) {
+    return 'O assunto precisa ter pelo menos 5 caracteres.'
+  }
+  if (first?.includes('name')) {
+    return 'O nome precisa ter pelo menos 3 caracteres.'
+  }
+  return first || err.message || 'Erro ao enviar mensagem. Tente novamente.'
+}
+
 export function ContactForm({ showHeader = true }: ContactFormProps) {
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
@@ -28,7 +49,7 @@ export function ContactForm({ showHeader = true }: ContactFormProps) {
       toast.success('Mensagem enviada com sucesso!')
       setForm({ name: '', email: '', phone: '', subject: '', message: '' })
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : 'Erro ao enviar mensagem. Tente novamente.')
+      toast.error(contactErrorMessage(err))
     } finally {
       setLoading(false)
     }
@@ -47,6 +68,8 @@ export function ContactForm({ showHeader = true }: ContactFormProps) {
         <Input
           label="Nome"
           required
+          minLength={3}
+          maxLength={100}
           value={form.name}
           onChange={(e) => setForm({ ...form, name: e.target.value })}
         />
@@ -59,12 +82,18 @@ export function ContactForm({ showHeader = true }: ContactFormProps) {
         />
         <Input
           label="Telefone"
+          required
+          minLength={8}
+          maxLength={20}
+          placeholder="(51) 99999-9999"
           value={form.phone}
           onChange={(e) => setForm({ ...form, phone: e.target.value })}
         />
         <Input
           label="Assunto"
           required
+          minLength={5}
+          maxLength={50}
           value={form.subject}
           onChange={(e) => setForm({ ...form, subject: e.target.value })}
         />
@@ -72,7 +101,10 @@ export function ContactForm({ showHeader = true }: ContactFormProps) {
           <label className="text-sm font-medium text-grey-dark">Mensagem</label>
           <textarea
             required
+            minLength={10}
+            maxLength={1000}
             rows={5}
+            placeholder="Mínimo 10 caracteres"
             value={form.message}
             onChange={(e) => setForm({ ...form, message: e.target.value })}
           />

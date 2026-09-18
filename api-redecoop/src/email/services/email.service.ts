@@ -1,20 +1,28 @@
 import { MailerService } from '@nestjs-modules/mailer';
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { EmailTemplates } from '../templates/email.template';
 
 @Injectable()
 export class EmailService {
+  private readonly logger = new Logger(EmailService.name);
+
   constructor(private readonly mailService: MailerService) {}
 
   async sendEmail({
     to,
     subject,
     body,
+    from,
+    replyTo,
+    text,
     attachments
   }: {
     to: string;
     subject: string;
     body?: string;
+    from?: string;
+    replyTo?: string;
+    text?: string;
     attachments?: Array<{ filename: string; content: Buffer; contentType?: string }>;
   }) {
     try {
@@ -24,6 +32,9 @@ export class EmailService {
         to, 
         subject, 
         html: htmlBody,
+        ...(from ? { from } : {}),
+        ...(replyTo ? { replyTo } : {}),
+        ...(text ? { text } : {}),
         attachments: attachments?.map(attachment => ({
           filename: attachment.filename,
           content: attachment.content,
@@ -31,7 +42,9 @@ export class EmailService {
         }))
       });
     } catch (e) {
-      throw new InternalServerErrorException('Falha ao enviar e-mail', e.message);
+      const detail = e instanceof Error ? e.message : String(e);
+      this.logger.error(`SMTP falhou: ${detail}`);
+      throw new InternalServerErrorException('Falha ao enviar e-mail');
     }
   }
 }

@@ -61,6 +61,9 @@ const FaqPage = lazy(() => import('@/pages/FaqPage').then((m) => ({ default: m.F
 const ReportsPage = lazy(() =>
   import('@/pages/ReportsPage').then((m) => ({ default: m.ReportsPage })),
 )
+// const SiteAnalyticsPage = lazy(() =>
+//   import('@/pages/SiteAnalyticsPage').then((m) => ({ default: m.SiteAnalyticsPage })),
+// )
 const CafPanelPage = lazy(() =>
   import('@/pages/CafPanelPage').then((m) => ({ default: m.CafPanelPage })),
 )
@@ -94,6 +97,7 @@ export default function App() {
                     <Route path="viagens-disponiveis" element={<TravelsPage />} />
                     <Route path="mensagens" element={<MessagesPage />} />
                     <Route path="visitantes-e-solicitacoes" element={<VisitorsPage />} />
+                    {/* <Route path="audiencia-do-site" element={<SiteAnalyticsPage />} /> */}
                     <Route path="balcao-de-negocios" element={<BusinessDeskPage />} />
                     <Route path="relatorio" element={<ReportsPage />} />
                     <Route path="configuracoes-painel" element={<SettingsPanelPage />} />

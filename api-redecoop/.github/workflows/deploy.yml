@@ -25,4 +25,6 @@ jobs:
 
             npm run build
 
+            npm run migration:run
+
             pm2 restart redecoop-backend

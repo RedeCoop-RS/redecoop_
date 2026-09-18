@@ -10,6 +10,7 @@ import {
   Package,
   Truck,
   UserPlus,
+  // Globe,
 } from 'lucide-react'
 import { ChartCard } from '@/components/charts/ChartCard'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -23,13 +24,22 @@ import { productService, conversationService } from '@/services/product.service'
 import { requestService } from '@/services/misc.service'
 import { travelService } from '@/services/travel.service'
 import { businessService } from '@/services/business.service'
+// import { siteAnalyticsService } from '@/services/site-analytics.service'
 import {
   BUSINESS_TYPE_LABELS,
   businessListTitle,
   cooperativeBusinessLabel,
 } from '@/lib/business'
 import { formatTravelDeparture, travelStatusLabel } from '@/lib/travel'
-import type { GraphData, RegistrationRequest, Conversation, Travel, Business, BusinessType } from '@/types'
+import type {
+  GraphData,
+  RegistrationRequest,
+  Conversation,
+  Travel,
+  Business,
+  BusinessType,
+  // SiteAnalyticsOverview,
+} from '@/types'
 
 type InboxKind = 'request' | 'message' | 'travel' | 'mediation'
 
@@ -63,6 +73,7 @@ interface AdminPayload {
   mediations: Business[]
   mediationTotal: number
   charts: AdminCharts[]
+  // site?: SiteAnalyticsOverview | null
 }
 
 const KIND_ICON = {
@@ -176,6 +187,10 @@ export function AdminDashboard() {
       settled(graphService.totalVisitantsByMunicipality(), emptyGraph),
       settled(graphService.totalVisitantsByType(), emptyGraph),
       settled(graphService.totalProductCategories(), emptyGraph),
+      // settled<SiteAnalyticsOverview | null>(
+      //   siteAnalyticsService.overview({ from: today, to: today }),
+      //   null,
+      // ),
     ])
 
     const chartsFailed = [coopChart, visitantChart, visitantType, categories].every(
@@ -199,6 +214,7 @@ export function AdminDashboard() {
         { title: 'Visitantes por tipo', type: 'pie', data: visitantType },
         { title: 'Categorias de produtos', type: 'pie', data: categories },
       ],
+      // site: siteOverview,
     })
     setError(chartsFailed && !requests.data?.length)
     setLoading(false)
@@ -368,6 +384,30 @@ export function AdminDashboard() {
           />
         </Link>
       </div>
+
+      {/*
+      {payload.site && (
+        <Link to="/admin/audiencia-do-site" className="admin-stat-link mb-8 block">
+          <div className="panel-card">
+            <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-green-soft text-green">
+                  <Globe size={20} />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-ink">Audiência do site hoje</p>
+                  <p className="text-xs text-grey-dark">
+                    {payload.site.liveVisitors} agora · {payload.site.visitors} visitantes ·{' '}
+                    {payload.site.pageViews} telas vistas
+                  </p>
+                </div>
+              </div>
+              <span className="text-sm font-semibold text-green">Ver mapa de calor →</span>
+            </div>
+          </div>
+        </Link>
+      )}
+      */}
 
       <section className="admin-inbox">
         <div className="admin-inbox__header">

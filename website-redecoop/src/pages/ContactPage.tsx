@@ -11,8 +11,8 @@ const channels = [
   {
     icon: Mail,
     label: 'E-mail',
-    value: 'redecoop.rs@gmail.com.br',
-    href: 'mailto:redecoop.rs@gmail.com.br',
+    value: environment.contactEmail,
+    href: `mailto:${environment.contactEmail}`,
   },
   {
     icon: Phone,
@@ -51,7 +51,7 @@ export function ContactPage() {
             '@type': 'LocalBusiness',
             name: seoDefaults.siteName,
             url: `${siteUrl}/contato`,
-            email: 'redecoop.rs@gmail.com.br',
+            email: environment.contactEmail,
             telephone: '+55-51-98131-0336',
             address: {
               '@type': 'PostalAddress',

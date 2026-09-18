@@ -43,6 +43,7 @@ import { ValueRangeModule } from './valueRange/valueRange.module';
 import { WeightRangeModule } from './weightRange/weightRange.module';
 import { DistanceRangeModule } from './distanceRange/distanceRange.module';
 import { CafModule } from './caf/caf.module';
+import { WebsiteAnalyticsModule } from './websiteAnalytics/websiteAnalytics.module';
 import './_common/database/config';
 
 function requireJwtSecret(): string {
@@ -101,6 +102,7 @@ function requireJwtSecret(): string {
     DistanceRangeModule,
     ValueRangeModule,
     CafModule,
+    WebsiteAnalyticsModule,
   ],
   controllers: [AppController],
   providers: [

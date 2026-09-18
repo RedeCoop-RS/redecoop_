@@ -1,6 +1,5 @@
 import { config } from 'dotenv';
-import path, { join } from 'path';
-import { Cooperative } from 'src/cooperative/entities/cooperative.entity';
+import { join } from 'path';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 

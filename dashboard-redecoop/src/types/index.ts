@@ -503,3 +503,43 @@ export interface City {
   id: number
   name: string
 }
+
+export interface SiteAnalyticsOverview {
+  from: string
+  to: string
+  liveVisitors: number
+  visitors: number
+  sessions: number
+  pageViews: number
+  avgDurationMs: number
+  avgScrollPct: number
+  devices: { name: string; y: number }[]
+}
+
+export interface SiteAnalyticsPageRow {
+  path: string
+  views: number
+  visitors: number
+  avgDurationMs: number
+  totalDurationMs: number
+  avgScrollPct: number
+}
+
+export interface SiteAnalyticsTimeseriesPoint {
+  day: string
+  pageViews: number
+  visitors: number
+}
+
+export interface SiteAnalyticsHeatmap {
+  path: string
+  totalClicks: number
+  cells: { xPct: number; yPct: number; hits: number }[]
+  scroll: {
+    views: number
+    reached25: number
+    reached50: number
+    reached75: number
+    reached90: number
+  }
+}

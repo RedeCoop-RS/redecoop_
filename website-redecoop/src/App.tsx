@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { Analytics } from '@/components/Analytics'
+import { SiteAnalytics } from '@/components/SiteAnalytics'
 import { ScrollToTop } from '@/components/layout/ScrollToTop'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ModalProvider } from '@/contexts/ModalContext'
@@ -26,6 +27,7 @@ export default function App() {
     <BrowserRouter>
       <ScrollToTop />
       <Analytics />
+      <SiteAnalytics />
       <AuthProvider>
         <ModalProvider>
           <Routes>
