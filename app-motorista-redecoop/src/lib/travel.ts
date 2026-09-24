@@ -29,16 +29,21 @@ export function calculateFreeLoad(
   stopIndex: number,
   travel: Travel,
 ): number {
-  const maximumWeight = travel.vehicle.maximumWeight
+  const maximumWeight = Number(travel?.vehicle?.maximumWeight)
+  if (!Number.isFinite(maximumWeight)) return 0
+
   let currentLoad = 0
+  const routes = travel.travelRoutes ?? []
 
   for (let i = 0; i <= stopIndex; i++) {
-    const stop = travel.travelRoutes[i]
-    currentLoad += stop.loadingWeight || 0
-    currentLoad -= stop.unloadingWeight || 0
+    const stop = routes[i]
+    if (!stop) continue
+    currentLoad += Number(stop.loadingWeight) || 0
+    currentLoad -= Number(stop.unloadingWeight) || 0
   }
 
-  return maximumWeight - currentLoad
+  const free = maximumWeight - currentLoad
+  return Number.isFinite(free) ? free : 0
 }
 
 export function formatTravelDate(date: string): string {

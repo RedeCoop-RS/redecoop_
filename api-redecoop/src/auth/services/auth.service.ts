@@ -110,14 +110,22 @@ export class AuthService {
 
     const user = authToken.user;
 
+    // ADMIN com cooperativa vinculada usa sub = cooperative.id (mesmo contrato do chat/notificações).
     const payload =
       user.role === UserRole.ADMIN
-        ? {
-            email: user.username,
-            sub: user.id,
-            userId: user.id,
-            role: user.role,
-          }
+        ? user.cooperative
+          ? {
+              email: user.username,
+              sub: user.cooperative.id,
+              userId: user.id,
+              role: user.role,
+            }
+          : {
+              email: user.username,
+              sub: user.id,
+              userId: user.id,
+              role: user.role,
+            }
         : user.cooperative
           ? {
               email: user.cooperative.email,

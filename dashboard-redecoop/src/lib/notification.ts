@@ -89,9 +89,15 @@ function stripNotificationTags(message: string) {
 }
 
 export function formatNotificationMessage(message: string): string {
-  const withDates = message.replace(/<date>(.*?)<\/date>/g, (_, value) => {
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return value
+  const withDates = message.replace(/<date>(.*?)<\/date>/g, (_, value: string) => {
+    const raw = String(value).trim()
+    // Já vem como YYYY-MM-DD (America/Sao_Paulo) da API — evita shift UTC
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      const [y, m, d] = raw.split('-')
+      return `${d}/${m}/${y}`
+    }
+    const date = new Date(raw)
+    if (Number.isNaN(date.getTime())) return raw
     return date.toLocaleDateString('pt-BR')
   })
 

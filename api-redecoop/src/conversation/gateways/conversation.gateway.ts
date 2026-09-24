@@ -8,9 +8,9 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { ConversationMessageService } from '../services/conversationMessage.service';
+import { ConversationService } from '../services/conversation.service';
 import {
   ClassSerializerInterceptor,
-  Injectable,
   Logger,
   UseGuards,
   UseInterceptors,
@@ -22,9 +22,7 @@ import { WsAuthGuard } from '@/_common/guards/wsAuth.guard';
 import { SendMessageUseCase } from '../useCases/sendMessage.usecase';
 import { ApproveOrRejectMessageUseCase } from '../useCases/approveOrRejectMessage.usecase';
 import { MarkAsReadMessageUseCase } from '../useCases/markAsReadMessage.usecase';
-import { MessageStatus } from '../entities/conversationMessage.entity';
 import { EditMessageUseCase } from '../useCases/editMessage.use.case';
-import { MessageTemplates } from '../messageTemplates';
 
 @WebSocketGateway({ cors: true })
 @UseInterceptors(ClassSerializerInterceptor)
@@ -37,6 +35,7 @@ export class ConversationGateway {
     private readonly markAsReadMessageUseCase: MarkAsReadMessageUseCase,
     private readonly editMessageUseCase: EditMessageUseCase,
     private readonly conversationMessageService: ConversationMessageService,
+    private readonly conversationService: ConversationService,
   ) {}
 
   @UseGuards(WsAuthGuard)
@@ -53,15 +52,25 @@ export class ConversationGateway {
     @ConnectedSocket() socket: Socket,
     @MessageBody() data: { conversationId: number },
   ) {
+    const user = socket.data.user as UserLoggedDto;
     const roomName = `conversation-${data.conversationId}`;
 
     if (socket.rooms.has(roomName)) {
       return;
     }
 
+    if (user.role !== UserRole.ADMIN) {
+      const ok = await this.conversationService.isParticipant(data.conversationId, user.sub);
+      if (!ok) {
+        throw new WsException('Você não faz parte desta conversa');
+      }
+    }
+
     socket.join(roomName);
   }
 
+  @UseGuards(WsAuthGuard)
+  @Roles(UserRole.ADMIN, UserRole.COOPERATIVE)
   @SubscribeMessage('leaveConversation')
   async leftConversation(
     @ConnectedSocket() socket: Socket,
@@ -83,6 +92,7 @@ export class ConversationGateway {
         data.content,
         data.conversationId,
         user.sub,
+        user.role,
       );
 
       const messageData = {
@@ -107,7 +117,7 @@ export class ConversationGateway {
         const receiver = socketInRoom.data.user as UserLoggedDto;
 
         if (receiver.sub === user.sub) {
-          continue; // Ignora o remetente
+          continue;
         }
 
         const contentToSend = this.conversationMessageService.processMessage(message, receiver);
@@ -135,6 +145,8 @@ export class ConversationGateway {
     }
   }
 
+  @UseGuards(WsAuthGuard)
+  @Roles(UserRole.ADMIN, UserRole.COOPERATIVE)
   @SubscribeMessage('markAsRead')
   async markAsRead(@ConnectedSocket() socket: Socket, @MessageBody() data: { messageId: number }) {
     const user = socket.data.user as UserLoggedDto;
@@ -187,7 +199,6 @@ export class ConversationGateway {
     @ConnectedSocket() socket: Socket,
     @MessageBody() data: { conversationId: number; messageId: number; approved: boolean },
   ) {
-    const user = socket.data.user as UserLoggedDto;
     try {
       const message = await this.approveOrRejectMessageUseCase.execute(
         data.messageId,
@@ -210,7 +221,6 @@ export class ConversationGateway {
           content: contentToSend,
         });
       }
-
     } catch (e) {
       Logger.error(e);
       throw new WsException('Erro ao aprovar/rejeitar a mensagem');

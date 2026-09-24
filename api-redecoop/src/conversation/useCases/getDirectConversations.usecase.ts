@@ -7,6 +7,7 @@ import { paginate, PaginateQuery } from '@/_common/utils/paginate/paginate';
 import { ConversationService } from '../services/conversation.service';
 import { plainToInstance } from 'class-transformer';
 import { ConversationDto } from '../Dtos/conversation.dto';
+import { UserRole } from '@/User/entities/user.entity';
 
 @Injectable()
 export class GetDirectConversationsUseCase {
@@ -36,11 +37,15 @@ export class GetDirectConversationsUseCase {
         'conversation.messageCount',
         'conversation.lastMessage',
       ])
-      .andWhere('conversation.deletedAt IS NULL')
-      .andWhere(
+      .andWhere('conversation.deletedAt IS NULL');
+
+    // Admin vê todas as DMs; cooperativa só as próprias
+    if (user.role !== UserRole.ADMIN) {
+      queryBuilder.andWhere(
         '(participantCooperative.id = :cooperativeLoggedId OR initiatorCooperative.id = :cooperativeLoggedId)',
         { cooperativeLoggedId: user.sub },
       );
+    }
 
     const { filter } = query;
 

@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { ReportService } from '../report.service';
 import * as moment from 'moment-timezone';
+import { dateRangeSaoPaulo } from '../utils/dateRangeSaoPaulo';
 
 @Injectable()
 export class TravelPriceReportUseCase {
@@ -17,14 +18,12 @@ export class TravelPriceReportUseCase {
   ) {}
 
   public async execute(startDate: string, endDate: string) {
-    const end = new Date(endDate);
-    end.setUTCHours(23, 59, 59, 999);
+    const { start, end } = dateRangeSaoPaulo(startDate, endDate);
 
-    const ACTIVE_STATUSES = [OfferStatus.Confirmed, OfferStatus.ConfirmedPendingRoutes, OfferStatus.Negotiating];
+    const ACTIVE_STATUSES = [OfferStatus.Confirmed, OfferStatus.ConfirmedPendingRoutes];
     const STATUS_LABEL: Partial<Record<OfferStatus, string>> = {
       [OfferStatus.Confirmed]: 'Confirmado',
       [OfferStatus.ConfirmedPendingRoutes]: 'Aguardando Rotas',
-      [OfferStatus.Negotiating]: 'Em Negociação',
     };
 
     const travelOffers = await this._TravelOfferRepository
@@ -32,7 +31,7 @@ export class TravelPriceReportUseCase {
       .innerJoinAndSelect('tof.cooperative', 'cooperative')
       .innerJoinAndSelect('tof.travel', 'travel')
       .where('tof.status IN (:...statuses)', { statuses: ACTIVE_STATUSES })
-      .andWhere('travel.startDateTime BETWEEN :start AND :end', { start: new Date(startDate), end })
+      .andWhere('travel.startDateTime BETWEEN :start AND :end', { start, end })
       .andWhere('tof.deletedAt IS NULL')
       .andWhere('travel.deletedAt IS NULL')
       .getMany();

@@ -65,13 +65,19 @@ export class MarkArrivalRouteUseCase {
 
       if (travelOffers && travelOffers.length > 0) {
         for (const offer of travelOffers) {
+          if (!offer.business?.id) {
+            continue;
+          }
           const business = await this.businessRepository.findOneBy({ id: offer.business.id });
+          if (!business) {
+            continue;
+          }
           await this.debitService.addDebit({
             cooperativeId: business.requestingCooperativeId,
             businessId: business.id,
           });
           business.status = BusinessStatus.Done;
-          await this.businessRepository.save(business)
+          await this.businessRepository.save(business);
         }
       }
     }

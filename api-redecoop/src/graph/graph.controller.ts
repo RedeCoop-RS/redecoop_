@@ -2,7 +2,8 @@ import { Controller, Get, SerializeOptions } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CooperativesByMunicipalityGraphUseCase } from './useCases/cooperativesByMucipality.usecase';
 import { GraphDto } from './Dtos/graph.dto';
-import { Public } from '@/_common/decorators/skipAuth.decorator';
+import { Roles } from '@/_common/decorators/role.decorator';
+import { UserRole } from '@/User/entities/user.entity';
 import { ProductCategoriesGraphUseCase } from './useCases/productCategories.usecase';
 import { VisitantsByMunicipalityGraphUseCase } from './useCases/visitantsByMucipality.usecase';
 import { VisitantsByTypeGraphUseCase } from './useCases/visitantsByType.usecase';
@@ -10,7 +11,7 @@ import { VisitantsByTypeGraphUseCase } from './useCases/visitantsByType.usecase'
 @ApiBearerAuth()
 @ApiTags('Graph')
 @Controller('graph')
-@Public()
+@Roles(UserRole.ADMIN)
 @SerializeOptions({ excludeExtraneousValues: false })
 export class GraphController {
   constructor(

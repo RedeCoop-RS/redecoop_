@@ -51,6 +51,7 @@ export class CommonConversationController {
   }
 
   @Get('view/:conversationId')
+  @Roles(UserRole.COOPERATIVE, UserRole.ADMIN)
   @ApiOperation({
     summary: 'Ver uma unica conversa e suas mensagens',
   })
@@ -59,6 +60,7 @@ export class CommonConversationController {
   }
 
   @Post('start-direct')
+  @Roles(UserRole.COOPERATIVE, UserRole.ADMIN)
   @ApiOperation({
     summary: 'Criar uma nova conversa com uma cooperativa',
   })
@@ -70,6 +72,7 @@ export class CommonConversationController {
   }
 
   @Get('contacts-recent')
+  @Roles(UserRole.COOPERATIVE, UserRole.ADMIN)
   @ApiOperation({
     summary:
       'Listar as cooperativas mais recentes que entraram em contato com o usuário logado ou com as quais o usuário entrou em contato.',
@@ -79,6 +82,8 @@ export class CommonConversationController {
   }
 
   @Patch('approve-reject-message/:messageId')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Aprovar ou rejeitar mensagem em mediação (admin)' })
   async approveOrRejectMessage(
     @Param('messageId', ParseIntPipe) id: number,
     @Body('approved', ParseBoolPipe) approved: boolean,

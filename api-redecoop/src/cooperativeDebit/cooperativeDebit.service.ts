@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CooperativeDebit } from './entities/cooperativeDebit.entity';
 import { Repository } from 'typeorm';
@@ -19,6 +19,9 @@ export class CooperativeDebitService {
     const { businessId, cooperativeId } = data;
 
     const business = await this.businessRepository.findOneBy({ id: businessId });
+    if (!business) {
+      throw new NotFoundException('Negócio não encontrado para registrar débito');
+    }
 
     const debit = await this.cooperativeDebitRepository.save(
       this.cooperativeDebitRepository.create({

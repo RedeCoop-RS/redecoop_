@@ -81,7 +81,10 @@ export class ListBusinessForAdminUseCase {
     const paginated = await paginate(query, queryBuilder);
 
     const negotiatingCount = await queryBuilder
-      .andWhere('business.status = :status', { status: BusinessStatus.Negotiating })
+      .clone()
+      .andWhere('business.status = :negotiatingStatus', {
+        negotiatingStatus: BusinessStatus.Negotiating,
+      })
       .getCount();
 
     const { data, ...pagination } = paginated;

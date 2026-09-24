@@ -48,4 +48,16 @@ export class ConversationService {
       },
     });
   }
+
+  async isParticipant(conversationId: number, cooperativeId: number): Promise<boolean> {
+    const conversation = await this.conversationRepository.findOne({
+      where: { id: conversationId },
+      relations: { initiatorCooperative: true, participantCooperative: true },
+    });
+    if (!conversation) return false;
+    return (
+      conversation.initiatorCooperative?.id === cooperativeId ||
+      conversation.participantCooperative?.id === cooperativeId
+    );
+  }
 }

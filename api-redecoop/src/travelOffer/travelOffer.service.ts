@@ -300,6 +300,9 @@ export class TravelOfferService {
     vehicleId: number,
   ): Promise<number> {
     const vehicle = await this.vehicleRepository.findOneBy({ id: vehicleId });
+    if (!vehicle) {
+      throw new NotFoundException('Veículo não encontrado');
+    }
     const minimumFreight = await this.configSystemService.getMinimumServiceTax();
     const taxService = await this.configSystemService.getTaxService();
     const vehicleTypeMpy = await this.vehicleTypeService.getMpyForVehicleType(vehicle.typeId);

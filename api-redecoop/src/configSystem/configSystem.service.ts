@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigSystem } from './entities/configSystem.entity';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -40,7 +40,7 @@ export class ConfigSystemService {
   async getMinimumServiceTax(): Promise<number> {
     const config = await this.configRepository.findOne({ where: { id: 1 } });
     if (!config) {
-      throw new Error('Configuração de valor taxa minima não encontrada');
+      throw new NotFoundException('Configuração de valor taxa minima não encontrada');
     }
     return Number(config.minimumServiceTax);
   }
@@ -48,7 +48,7 @@ export class ConfigSystemService {
   async getTaxService(): Promise<number> {
     const config = await this.configRepository.findOne({ where: { id: 1 } });
     if (!config) {
-      throw new Error('Configuração de taxa de serviço não encontrada');
+      throw new NotFoundException('Configuração de taxa de serviço não encontrada');
     }
     return Number(config.serviceTax);
   }

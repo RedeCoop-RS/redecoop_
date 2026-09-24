@@ -8,6 +8,7 @@ import { SendEmailVisitantUseCase } from './use-cases/send-email-visitant.use-ca
 import { EmailModule } from '@/email/email.module';
 import { EmailService } from '@/email/services/email.service';
 import { SendContactEmailUseCase } from './use-cases/send-contact-email.use-case';
+import { SendPublicBudgetEmailUseCase } from './use-cases/send-public-budget-email.use-case';
 import { PublicVisitantController } from './controllers/public-visitant.controller';
 
 @Module({
@@ -32,7 +33,14 @@ import { PublicVisitantController } from './controllers/public-visitant.controll
         return new SendContactEmailUseCase(emailService);
       },
       inject: [EmailService],
-    }
+    },
+    {
+      provide: SendPublicBudgetEmailUseCase,
+      useFactory: (emailService: EmailService) => {
+        return new SendPublicBudgetEmailUseCase(emailService);
+      },
+      inject: [EmailService],
+    },
   ],
   exports: [VisitantService, TypeOrmModule],
 })

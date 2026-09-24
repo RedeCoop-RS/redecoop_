@@ -17,7 +17,7 @@ export const publicService = {
   },
 
   sendBudgetEmail(formData: FormData) {
-    return apiFetch('/visitant/send-budget-email', {
+    return apiFetch('/public/budget', {
       method: 'POST',
       body: formData,
     })

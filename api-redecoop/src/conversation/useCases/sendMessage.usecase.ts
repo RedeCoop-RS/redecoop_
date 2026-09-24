@@ -9,6 +9,7 @@ import { NotificationType } from '@/notification/entities/notification.entity';
 import { NotificationMessages } from '@/notification/notification-messages';
 import { ConversationMessageService } from '../services/conversationMessage.service';
 import * as moment from 'moment';
+import { UserRole } from '@/User/entities/user.entity';
 
 @Injectable()
 export class SendMessageUseCase {
@@ -31,7 +32,12 @@ export class SendMessageUseCase {
    * @throws {BadRequestException} Se a cooperativa não for parte da conversa.
    */
   @Transactional()
-  async execute(content: string, conversationId: number, cooperativeId: number) {
+  async execute(
+    content: string,
+    conversationId: number,
+    cooperativeId: number,
+    role?: UserRole,
+  ) {
     const conversation = await this.conversationRepository.findOne({
       where: { id: conversationId },
       relations: ['initiatorCooperative', 'participantCooperative'],
@@ -41,10 +47,11 @@ export class SendMessageUseCase {
       throw new NotFoundException('Conversa não encontrada!');
     }
 
-    if (
-      conversation.initiatorCooperative.id !== cooperativeId &&
-      conversation.participantCooperative.id !== cooperativeId
-    ) {
+    const isParticipant =
+      conversation.initiatorCooperative.id === cooperativeId ||
+      conversation.participantCooperative.id === cooperativeId;
+
+    if (role !== UserRole.ADMIN && !isParticipant) {
       throw new BadRequestException('Você não pode enviar mensagem pois não faz parte da conversa');
     }
 
@@ -62,16 +69,18 @@ export class SendMessageUseCase {
       }),
     );
 
-    const [sendingCooperative, receivingCooperative] =
-      conversation.initiatorCooperative.id === cooperativeId
-        ? [conversation.initiatorCooperative, conversation.participantCooperative]
-        : [conversation.participantCooperative, conversation.initiatorCooperative];
+    if (isParticipant) {
+      const [sendingCooperative, receivingCooperative] =
+        conversation.initiatorCooperative.id === cooperativeId
+          ? [conversation.initiatorCooperative, conversation.participantCooperative]
+          : [conversation.participantCooperative, conversation.initiatorCooperative];
 
-    await this.notificationService.sendNotification(
-      NotificationType.NEW_MESSAGE,
-      NotificationMessages.NEW_MESSAGE(sendingCooperative.companyName, content, conversationId),
-      receivingCooperative.id,
-    );
+      await this.notificationService.sendNotification(
+        NotificationType.NEW_MESSAGE,
+        NotificationMessages.NEW_MESSAGE(sendingCooperative.companyName, content, conversationId),
+        receivingCooperative.id,
+      );
+    }
 
     return message;
   }

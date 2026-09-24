@@ -1,5 +1,5 @@
 import { HashService } from '../../_common/services/passwordHash.service';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { MoreThan, MoreThanOrEqual, Repository } from 'typeorm';
 import { User } from '@/User/entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -22,8 +22,10 @@ export class AuthRecoverService {
       where: { username: email },
       relations: ['cooperative', 'visitant'],
     });
+
+    // Resposta genérica — não revela se o e-mail existe
     if (!user) {
-      throw new NotFoundException('Usuário não encontrado!');
+      return;
     }
 
     if (user.role == 'DRIVER') {

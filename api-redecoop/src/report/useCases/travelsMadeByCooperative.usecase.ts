@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository } from 'typeorm';
 import { ReportService } from '../report.service';
 import { OfferStatus, TravelOffer } from '@/travelOffer/entities/travelOffer.entity';
+import { dateRangeSaoPaulo } from '../utils/dateRangeSaoPaulo';
 
 @Injectable()
 export class TravelsMadeByCooperativeUseCase {
@@ -20,9 +21,7 @@ export class TravelsMadeByCooperativeUseCase {
 
   public async execute(startDate: string, endDate: string) {
     const cooperatives = await this._cooperativeRepository.find();
-
-    const end = new Date(endDate);
-    end.setUTCHours(23, 59, 59, 999);
+    const { start, end } = dateRangeSaoPaulo(startDate, endDate);
 
     let content = [];
 
@@ -32,17 +31,17 @@ export class TravelsMadeByCooperativeUseCase {
         where: {
           status: TravelStatus.Completed,
           cooperativeId: cooperative.id,
-          startDateTime: Between(new Date(startDate), end),
+          startDateTime: Between(start, end),
         },
       });
       const participantTotal = await this._travelOfferRepository
         .createQueryBuilder('tof')
         .innerJoin('tof.travel', 'travel')
         .where('tof.status IN (:...statuses)', {
-          statuses: [OfferStatus.Confirmed, OfferStatus.ConfirmedPendingRoutes, OfferStatus.Negotiating],
+          statuses: [OfferStatus.Confirmed, OfferStatus.ConfirmedPendingRoutes],
         })
         .andWhere('tof.cooperativeId = :cooperativeId', { cooperativeId: cooperative.id })
-        .andWhere('travel.startDateTime BETWEEN :start AND :end', { start: new Date(startDate), end })
+        .andWhere('travel.startDateTime BETWEEN :start AND :end', { start, end })
         .andWhere('tof.deletedAt IS NULL')
         .andWhere('travel.deletedAt IS NULL')
         .getCount();
@@ -52,7 +51,7 @@ export class TravelsMadeByCooperativeUseCase {
         .innerJoin('tof.travel', 'travel')
         .where('tof.status = :status', { status: OfferStatus.ConfirmedPendingRoutes })
         .andWhere('tof.cooperativeId = :cooperativeId', { cooperativeId: cooperative.id })
-        .andWhere('travel.startDateTime BETWEEN :start AND :end', { start: new Date(startDate), end })
+        .andWhere('travel.startDateTime BETWEEN :start AND :end', { start, end })
         .andWhere('tof.deletedAt IS NULL')
         .andWhere('travel.deletedAt IS NULL')
         .getCount();

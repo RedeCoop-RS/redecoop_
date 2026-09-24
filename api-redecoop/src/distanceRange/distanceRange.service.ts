@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual, MoreThan } from 'typeorm';
+import { Repository, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import { DistanceRange } from '@/distanceRange/entities/distanceRange.entity';
 
 @Injectable()
@@ -14,7 +14,7 @@ export class DistanceRangeService {
     const distanceRange = await this.distanceRangeRepository.findOne({
       where: {
         from: LessThanOrEqual(totalDistance),
-        to: MoreThan(totalDistance),
+        to: MoreThanOrEqual(totalDistance),
       },
     });
 

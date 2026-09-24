@@ -133,20 +133,22 @@ export class TravelRouteService {
 
     for (let i = 0; i < travelRoutes.length; i++) {
       const route = travelRoutes[i];
-      currentLoad += Number(route.loadingWeight);
-      currentLoad -= Number(route.unloadingWeight);
+      const loading = Number(route.loadingWeight) || 0;
+      const unloading = Number(route.unloadingWeight) || 0;
+      currentLoad += loading;
+      currentLoad -= unloading;
 
-      if (i === travelRoutes.length - 1 && route.loadingWeight > 0) {
+      if (currentLoad > vehicleMaxCapacity) {
+        throw new BadRequestException(
+          `Carga excede a capacidade máxima do veículo na parada ${route.order}. Verifique o trajeto!`,
+        );
+      }
+
+      if (i === travelRoutes.length - 1 && (loading > 0 || currentLoad > 0)) {
         throw new BadRequestException(
           `A última parada da viagem (${route.order}) não pode deixar o veículo carregado`,
         );
       }
-    }
-
-    if (currentLoad > vehicleMaxCapacity) {
-      throw new BadRequestException(
-        'Carga atual excede a capacidade máxima do veículo, verifique o trajeto!',
-      );
     }
 
     return currentLoad;

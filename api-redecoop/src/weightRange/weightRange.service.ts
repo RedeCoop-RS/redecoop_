@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual, MoreThan } from 'typeorm';
+import { Repository, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import { WeightRange } from '@/weightRange/entities/weightRange.entity';
 
 @Injectable()
@@ -14,7 +14,7 @@ export class WeightRangeService {
     const weightRange = await this.weightRangeRepository.findOne({
       where: {
         from: LessThanOrEqual(totalWeight),
-        to: MoreThan(totalWeight),
+        to: MoreThanOrEqual(totalWeight),
       },
     });
 

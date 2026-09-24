@@ -7,6 +7,9 @@ import { publicService } from '@/services/public.service'
 
 export function BudgetForm() {
   const [loading, setLoading] = useState(false)
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
   const [files, setFiles] = useState<File[]>([])
@@ -21,16 +24,22 @@ export function BudgetForm() {
     setLoading(true)
     try {
       const formData = new FormData()
+      formData.append('name', name)
+      formData.append('email', email)
+      formData.append('phone', phone)
       formData.append('subject', subject)
       formData.append('message', message)
-      files.forEach((f) => formData.append('files[]', f))
+      files.forEach((f) => formData.append('files', f))
       await publicService.sendBudgetEmail(formData)
       toast.success('Orçamento enviado com sucesso!')
+      setName('')
+      setEmail('')
+      setPhone('')
       setSubject('')
       setMessage('')
       setFiles([])
     } catch {
-      toast.error('Erro ao enviar orçamento. Faça login e tente novamente.')
+      toast.error('Erro ao enviar orçamento. Tente novamente.')
     } finally {
       setLoading(false)
     }
@@ -44,6 +53,25 @@ export function BudgetForm() {
       </p>
 
       <div className="space-y-4">
+        <Input
+          label="Nome"
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <Input
+          label="E-mail"
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <Input
+          label="Telefone"
+          required
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+        />
         <Input
           label="Assunto"
           required

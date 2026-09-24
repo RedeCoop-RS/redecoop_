@@ -6,6 +6,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ReportService } from '../report.service';
 import * as moment from 'moment-timezone';
+import { dateRangeSaoPaulo } from '../utils/dateRangeSaoPaulo';
 
 @Injectable()
 export class ProductsTransportedByCooperativeUseCase {
@@ -24,20 +25,15 @@ export class ProductsTransportedByCooperativeUseCase {
       throw new NotFoundException('Cooperativa não encontrada.');
     }
 
-    const end = new Date(endDate);
-    end.setUTCHours(23, 59, 59, 999);
+    const { start, end } = dateRangeSaoPaulo(startDate, endDate);
 
-    const ACTIVE_STATUSES = [OfferStatus.Confirmed, OfferStatus.ConfirmedPendingRoutes, OfferStatus.Negotiating];
+    const ACTIVE_STATUSES = [OfferStatus.Confirmed, OfferStatus.ConfirmedPendingRoutes];
     const STATUS_LABEL: Partial<Record<OfferStatus, string>> = {
       [OfferStatus.Confirmed]: 'Confirmado',
       [OfferStatus.ConfirmedPendingRoutes]: 'Aguardando Rotas',
-      [OfferStatus.Negotiating]: 'Em Negociação',
     };
 
-    const baseRange = {
-      start: new Date(startDate),
-      end,
-    };
+    const baseRange = { start, end };
 
     const asParticipant = await this._travelRouteProductRepository
       .createQueryBuilder('trp')

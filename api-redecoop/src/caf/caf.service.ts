@@ -114,6 +114,10 @@ export type CafPanelPayload = {
   sociosPorPublicoEAtividadeAgregado: CafAgregadoPublicoAtividade[];
 };
 
+function normalizeCnpj(cnpj?: string | null): string {
+  return (cnpj ?? '').replace(/\D/g, '');
+}
+
 @Injectable()
 export class CafService {
   constructor(
@@ -159,9 +163,22 @@ export class CafService {
     }
     const data = await query.getMany();
 
+    const listaQuery = this.cooperativeRepo
+      .createQueryBuilder('c')
+      .select(['c.id', 'c.cnpj', 'c.type', 'c.active', 'c.fantasyName']);
+    if (cooperativeId) {
+      listaQuery.where('c.id = :cooperativeId', { cooperativeId });
+    } else {
+      listaQuery.where('c.active = :active', { active: true });
+    }
+    const listaRedecoop = await listaQuery.getMany();
+
     const cooperativeIds = [
       ...new Set(
-        data.map((d) => d.cooperativeId).filter((id): id is number => id != null && id > 0),
+        [
+          ...data.map((d) => d.cooperativeId),
+          ...listaRedecoop.map((c) => c.id),
+        ].filter((id): id is number => id != null && id > 0),
       ),
     ];
     const fantasyByCoopId = new Map<number, string | null>();
@@ -176,6 +193,27 @@ export class CafService {
         typeByCoopId.set(c.id, c.type);
       }
     }
+
+    const cafByCoopId = new Set(
+      data.map((d) => d.cooperativeId).filter((id): id is number => id != null && id > 0),
+    );
+    const cafByCnpj = new Set(
+      data.map((d) => normalizeCnpj(d.cnpj)).filter((cnpj) => cnpj.length > 0),
+    );
+
+    const semExtrato = listaRedecoop.filter((c) => {
+      if (cafByCoopId.has(c.id)) return false;
+      const cnpj = normalizeCnpj(c.cnpj);
+      if (cnpj && cafByCnpj.has(cnpj)) return false;
+      return true;
+    });
+    const cnpjsSemExtrato = [
+      ...new Set(
+        semExtrato
+          .map((c) => normalizeCnpj(c.cnpj))
+          .filter((cnpj) => cnpj.length > 0),
+      ),
+    ];
 
     const aggData =
       cooperativeId != null
@@ -213,10 +251,10 @@ export class CafService {
       totalSemCaf,
       cooperativasAtivas: ativas,
       cooperativasInativas: inativas,
-      totalNaListaRedecoop: data.length,
-      comExtratoNoBanco: data.length,
-      semExtratoNaLista: 0,
-      cnpjsSemExtrato: [],
+      totalNaListaRedecoop: listaRedecoop.length,
+      comExtratoNoBanco: listaRedecoop.length - semExtrato.length,
+      semExtratoNaLista: semExtrato.length,
+      cnpjsSemExtrato,
       lastUpdate: lastUpdate > new Date(0) ? lastUpdate : null,
       cooperativas: data.map((d) => ({
         ...this.entityToPlain(d),
@@ -231,3 +269,4 @@ export class CafService {
     return JSON.parse(JSON.stringify(payload)) as CafPanelPayload;
   }
 }
+

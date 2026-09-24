@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConversationMessage, MessageStatus } from '../entities/conversationMessage.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -16,7 +16,11 @@ export class MarkAsReadMessageUseCase {
       relations: { cooperative: true },
     });
 
-    if (message.cooperative.id == cooperativeId) {
+    if (!message) {
+      throw new NotFoundException('Mensagem não encontrada');
+    }
+
+    if (message.cooperative?.id == cooperativeId) {
       return;
     }
 

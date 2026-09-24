@@ -49,7 +49,9 @@ export async function paginate<T extends ObjectLiteral>(
     }
   } else {
     if (repo instanceof SelectQueryBuilder) {
+      // clone: não polui o QB original (contagens / filtros posteriores no caller)
       [items, totalItems] = await repo
+        .clone()
         .skip((page - 1) * limit)
         .take(limit)
         .getManyAndCount();

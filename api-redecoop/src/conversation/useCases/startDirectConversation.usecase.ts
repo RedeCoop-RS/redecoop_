@@ -31,7 +31,7 @@ export class StartDirectConversationUseCase {
       true,
     );
 
-    await this.sendMessageUseCase.execute(message, conversation.id, user.sub);
+    await this.sendMessageUseCase.execute(message, conversation.id, user.sub, user.role);
 
     return plainToInstance(ConversationDto, conversation);
   }
