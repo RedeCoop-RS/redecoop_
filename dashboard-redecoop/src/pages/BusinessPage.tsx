@@ -134,6 +134,12 @@ function BusinessListPage({ admin }: { admin: boolean }) {
   }, [load])
 
   useEffect(() => {
+    const onBusinessChanged = () => reload()
+    window.addEventListener('business:changed', onBusinessChanged)
+    return () => window.removeEventListener('business:changed', onBusinessChanged)
+  }, [])
+
+  useEffect(() => {
     if (statusFilterApplied.current) return
 
     const status = searchParams.get('status')

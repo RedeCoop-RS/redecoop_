@@ -2945,6 +2945,19 @@
   color: #6b7280;
 }
 
+.business-view-proposal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.875rem;
+}
+
+.business-view-proposal-actions .btn-arrow,
+.business-view-proposal-actions button {
+  flex: 1 1 auto;
+  min-width: 7.5rem;
+}
+
 .business-route-timeline {
   display: flex;
   flex-direction: column;

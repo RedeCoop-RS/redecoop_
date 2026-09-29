@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { MessageSquare } from 'lucide-react'
+import { Check, MessageSquare, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Modal } from '@/components/ui/Modal'
+import { Button } from '@/components/ui/Button'
 import { ChatPanel } from '@/components/chat/ChatPanel'
 import { LoadingOverlay } from '@/components/ui/LoadingOverlay'
 import { businessDeskService, collectivePurchaseService } from '@/services/business.service'
@@ -11,8 +12,10 @@ import {
   businessStatusLabel,
   formatBusinessDate,
   formatBusinessFee,
+  isUserOfferingBusiness,
 } from '@/lib/business'
 import {
+  BusinessStatus,
   BusinessType,
   type Business,
   type BusinessDeskItem,
@@ -21,6 +24,9 @@ import {
   type TravelRoute,
 } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
+import { useModal } from '@/contexts/ModalContext'
+
+const OFFER_DECISION_BLOCKED = new Set(['confirmed', 'confirmedPendingRoutes', 'rejected'])
 
 type CollectiveProduct = { productName?: string; weight?: number }
 
@@ -211,11 +217,18 @@ export function BusinessViewModal({
   business: Business | null
   onClose: () => void
 }) {
-  const { isAdmin } = useAuth()
+  const { isAdmin, isCooperative, user } = useAuth()
+  const { confirm } = useModal()
   const [loadingDetails, setLoadingDetails] = useState(false)
+  const [deciding, setDeciding] = useState(false)
   const [travelOffer, setTravelOffer] = useState<TravelOffer | null>(null)
   const [businessDesk, setBusinessDesk] = useState<BusinessDeskItem | null>(null)
   const [collectivePurchase, setCollectivePurchase] = useState<CollectivePurchase | null>(null)
+  const [displayBusiness, setDisplayBusiness] = useState<Business | null>(business)
+
+  useEffect(() => {
+    setDisplayBusiness(business)
+  }, [business])
 
   useEffect(() => {
     if (!open || !business) {
@@ -223,6 +236,7 @@ export function BusinessViewModal({
       setBusinessDesk(null)
       setCollectivePurchase(null)
       setLoadingDetails(false)
+      setDeciding(false)
       return
     }
 
@@ -232,6 +246,9 @@ export function BusinessViewModal({
         if (business.type === BusinessType.V && business.travelOffer?.id) {
           const offer = await travelOfferService.view(business.travelOffer.id)
           setTravelOffer(offer)
+          if (offer.business) {
+            setDisplayBusiness((prev) => (prev ? { ...prev, ...offer.business } : offer.business ?? prev))
+          }
         } else if (business.type === BusinessType.BN && business.businessDesk?.id) {
           const desk = await businessDeskService.view(business.businessDesk.id)
           setBusinessDesk(desk)
@@ -250,23 +267,28 @@ export function BusinessViewModal({
   }, [open, business])
 
   const conversationId =
-    business?.conversation?.id ?? travelOffer?.business?.conversation?.id ?? null
+    displayBusiness?.conversation?.id ??
+    business?.conversation?.id ??
+    travelOffer?.business?.conversation?.id ??
+    null
 
   const title = useMemo(() => {
-    if (!business) return 'Negócio'
-    if (business.type === BusinessType.V) {
-      const travelId = travelOffer?.travel?.id ?? business.travelOffer?.travel?.id
-      const offerId = travelOffer?.id ?? business.travelOffer?.id
+    if (!displayBusiness && !business) return 'Negócio'
+    const current = displayBusiness ?? business
+    if (!current) return 'Negócio'
+    if (current.type === BusinessType.V) {
+      const travelId = travelOffer?.travel?.id ?? current.travelOffer?.travel?.id
+      const offerId = travelOffer?.id ?? current.travelOffer?.id
       return `Viagem #${travelId ?? '—'} · Proposta #${offerId ?? '—'}`
     }
-    if (business.type === BusinessType.BN) {
-      return `Conversa #${conversationId ?? '—'} · Balcão #${business.businessDesk?.id ?? '—'}`
+    if (current.type === BusinessType.BN) {
+      return `Conversa #${conversationId ?? '—'} · Balcão #${current.businessDesk?.id ?? '—'}`
     }
-    if (business.type === BusinessType.CC) {
-      return `Conversa #${conversationId ?? '—'} · Compra coletiva #${business.collectivePurchase?.id ?? '—'}`
+    if (current.type === BusinessType.CC) {
+      return `Conversa #${conversationId ?? '—'} · Compra coletiva #${current.collectivePurchase?.id ?? '—'}`
     }
-    return `Negócio ${business.type}-${business.id}`
-  }, [business, travelOffer, conversationId])
+    return `Negócio ${current.type}-${current.id}`
+  }, [business, displayBusiness, travelOffer, conversationId])
 
   const deskProducts =
     businessDesk?.businessDeskProducts?.map((item) => ({
@@ -280,13 +302,13 @@ export function BusinessViewModal({
   }))
 
   const chatHeader =
-    business?.type === BusinessType.BN ? (
+    (displayBusiness ?? business)?.type === BusinessType.BN ? (
       <div className="business-view-chat-details">
         <ProductList items={deskProducts} />
         {businessDesk?.description && <p className="business-view-desc">{businessDesk.description}</p>}
         {loadingDetails && !businessDesk && <LoadingOverlay visible inline message="Carregando balcão..." />}
       </div>
-    ) : business?.type === BusinessType.CC ? (
+    ) : (displayBusiness ?? business)?.type === BusinessType.CC ? (
       <div className="business-view-chat-details">
         {collectivePurchase?.city?.name && (
           <p className="business-view-meta">
@@ -304,11 +326,69 @@ export function BusinessViewModal({
     ) : undefined
 
   const chatFooter =
-    business?.type === BusinessType.V ? (
+    (displayBusiness ?? business)?.type === BusinessType.V ? (
       <TravelChangelogFooter changelogs={travelOffer?.changelogs} hideContent={isAdmin} />
     ) : undefined
 
-  const isTravel = business?.type === BusinessType.V
+  const currentBusiness = displayBusiness ?? business
+  const isTravel = currentBusiness?.type === BusinessType.V
+  const offerStatus = (travelOffer?.status ?? '').toLowerCase()
+  const businessStatus = (currentBusiness?.status ?? travelOffer?.business?.status ?? '').toLowerCase()
+  const isOfferingCoop =
+    !!user?.cooperative?.id &&
+    (isUserOfferingBusiness(currentBusiness ?? { id: 0 }, user.cooperative.id) ||
+      travelOffer?.travel?.cooperative?.id === user.cooperative.id)
+  const canDecideOffer =
+    isCooperative &&
+    !!travelOffer?.id &&
+    isOfferingCoop &&
+    businessStatus === BusinessStatus.Negotiating &&
+    !OFFER_DECISION_BLOCKED.has(offerStatus)
+
+  const decideOffer = async (approved: boolean) => {
+    if (!travelOffer?.id || deciding) return
+    const ok = await confirm({
+      title: approved ? 'Aceitar proposta' : 'Rejeitar proposta',
+      message: approved
+        ? 'Tem certeza de que deseja aceitar esta proposta de viagem?'
+        : 'Tem certeza de que deseja rejeitar esta proposta? Esta ação não pode ser desfeita.',
+      confirmLabel: approved ? 'Aceitar' : 'Rejeitar',
+      variant: approved ? 'primary' : 'danger',
+    })
+    if (!ok) return
+
+    setDeciding(true)
+    try {
+      await travelOfferService.approve(travelOffer.id, approved)
+      const nextStatus = approved ? BusinessStatus.Confirmed : BusinessStatus.Canceled
+      const nextOfferStatus = approved ? 'confirmedPendingRoutes' : 'rejected'
+      setDisplayBusiness((prev) => (prev ? { ...prev, status: nextStatus } : prev))
+      setTravelOffer((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: nextOfferStatus,
+              business: prev.business ? { ...prev.business, status: nextStatus } : prev.business,
+            }
+          : prev,
+      )
+      toast.success(approved ? 'Proposta aceita!' : 'Proposta rejeitada.')
+      window.dispatchEvent(new CustomEvent('business:changed'))
+      try {
+        const refreshed = await travelOfferService.view(travelOffer.id)
+        setTravelOffer(refreshed)
+        if (refreshed.business) {
+          setDisplayBusiness((prev) => (prev ? { ...prev, ...refreshed.business } : prev))
+        }
+      } catch {
+        // Mantém o estado local já atualizado
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao processar proposta')
+    } finally {
+      setDeciding(false)
+    }
+  }
 
   return (
     <Modal
@@ -319,9 +399,9 @@ export function BusinessViewModal({
       panelClassName="business-view-modal"
       bodyClassName="business-view-modal__body"
     >
-      {business && (
+      {currentBusiness && (
         <div className="business-view-summary business-view-summary--top">
-          <BusinessSummaryCards business={business} />
+          <BusinessSummaryCards business={currentBusiness} />
         </div>
       )}
 
@@ -357,8 +437,33 @@ export function BusinessViewModal({
                     <RouteTimeline routes={travelOffer?.routes} variant="blue" />
                     <div className="business-view-proposal-summary">
                       <p>DISTÂNCIA: {totalRouteKm(travelOffer?.routes)}km</p>
-                      <p>VALOR ESTIMADO PELO FRETE: {formatBusinessFee(travelOffer?.business?.fee ?? business?.fee)}</p>
+                      <p>
+                        VALOR ESTIMADO PELO FRETE:{' '}
+                        {formatBusinessFee(travelOffer?.business?.fee ?? currentBusiness?.fee)}
+                      </p>
                     </div>
+                    {canDecideOffer && (
+                      <div className="business-view-proposal-actions">
+                        <Button
+                          type="button"
+                          variant="danger"
+                          disabled={deciding}
+                          onClick={() => decideOffer(false)}
+                        >
+                          <X size={16} />
+                          Rejeitar
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="primary"
+                          disabled={deciding}
+                          onClick={() => decideOffer(true)}
+                        >
+                          <Check size={16} />
+                          {deciding ? 'Processando...' : 'Aceitar'}
+                        </Button>
+                      </div>
+                    )}
                   </AccordionSection>
                 </>
               )}
