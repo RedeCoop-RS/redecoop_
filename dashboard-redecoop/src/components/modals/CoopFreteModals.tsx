@@ -55,16 +55,55 @@ export function DriverModal({
         bloodType: driver.bloodType ?? '',
         securityContact: driver.securityContact ?? '',
         dateBirth: driver.dateBirth?.slice(0, 10) ?? '',
+        password: '',
+        confirmPassword: '',
       })
     } else {
-      setForm({ cooperativeId: String(user?.cooperative?.id ?? ''), name: '', phone: '', cpf: '', cnhCategory: '', numberCnh: '', bloodType: '', securityContact: '', dateBirth: '', password: '' })
+      setForm({
+        cooperativeId: String(user?.cooperative?.id ?? ''),
+        name: '',
+        phone: '',
+        cpf: '',
+        cnhCategory: '',
+        numberCnh: '',
+        bloodType: '',
+        securityContact: '',
+        dateBirth: '',
+        password: '',
+        confirmPassword: '',
+      })
     }
   }, [open, driver, isAdmin, user])
 
   const save = async () => {
+    const password = (form.password ?? '').trim()
+    const confirmPassword = (form.confirmPassword ?? '').trim()
+
+    if (!isAdmin) {
+      if (!driver && !password) {
+        toast.error('Informe a nova senha.')
+        return
+      }
+      if (password || confirmPassword) {
+        if (password.length < 6) {
+          toast.error('A senha deve ter no mínimo 6 caracteres.')
+          return
+        }
+        if (password !== confirmPassword) {
+          toast.error('A confirmação da senha não coincide.')
+          return
+        }
+      }
+    } else if (!driver && password.length < 6) {
+      toast.error('A senha deve ter no mínimo 6 caracteres.')
+      return
+    }
+
     setSaving(true)
     try {
-      const payload = { ...form, img: photo ?? undefined }
+      const payload: Record<string, unknown> = { ...form, img: photo ?? undefined }
+      delete payload.confirmPassword
+      if (!password) delete payload.password
       if (driver) await driverService.update(driver.id, payload)
       else await driverService.create(payload)
       toast.success('Motorista salvo!')
@@ -92,7 +131,15 @@ export function DriverModal({
           <Select label="Tipo sanguíneo" value={form.bloodType ?? ''} onChange={(e) => setForm({ ...form, bloodType: e.target.value })} placeholder="Selecione..." options={bloodTypes.map((b) => ({ value: b, label: formatBloodType(b) }))} />
           <Input label="Contato emergência" value={form.securityContact ?? ''} onChange={(e) => setForm({ ...form, securityContact: e.target.value })} />
           <Input label="Data nascimento" type="date" value={form.dateBirth ?? ''} onChange={(e) => setForm({ ...form, dateBirth: e.target.value })} />
-          {!driver && <Input label="Senha" type="password" value={form.password ?? ''} onChange={(e) => setForm({ ...form, password: e.target.value })} />}
+          {!driver && isAdmin && (
+            <Input
+              label="Senha"
+              type="password"
+              autoComplete="new-password"
+              value={form.password ?? ''}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
+          )}
           <div className="coopfrete-photo-field">
             <span className="coopfrete-photo-field__label">Foto</span>
             <PicturePicker
@@ -104,6 +151,25 @@ export function DriverModal({
               onClear={() => setExistingPhoto('')}
             />
           </div>
+          {!isAdmin && (
+            <div className="flex flex-col gap-4">
+              <Input
+                label="Nova senha"
+                type="password"
+                autoComplete="new-password"
+                placeholder={driver ? 'Deixe em branco para manter' : undefined}
+                value={form.password ?? ''}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+              />
+              <Input
+                label="Confirma nova senha"
+                type="password"
+                autoComplete="new-password"
+                value={form.confirmPassword ?? ''}
+                onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+              />
+            </div>
+          )}
         </div>
         <div className="mt-6 flex justify-end gap-3">
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
