@@ -42,7 +42,7 @@ export function HomeGovernanceSection() {
               <div className="absolute -top-4 -left-4 w-20 h-20 rounded-full bg-red/20 blur-2xl" />
               <div className="group relative rounded-3xl overflow-hidden shadow-2xl shadow-green/15 ring-1 ring-green/10 transition-shadow duration-300 group-hover:shadow-green/20">
                 <OptimizedImage
-                  src="/assets/imgs/home_governance.jpg"
+                  src="/assets/imgs/home_governance.webp"
                   alt="Governança da cooperação solidária"
                   loading="lazy"
                   placeholder

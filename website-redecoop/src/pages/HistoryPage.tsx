@@ -57,7 +57,7 @@ export function HistoryPage() {
         title="Nossa História"
         description="Conheça a trajetória da RedeCoop RS: da chamada pública Mais Gestão em 2012 à fundação em 2017 com 39 cooperativas e à plataforma do cooperativismo em rede."
         path="/historia"
-        image="/assets/imgs/history_1.jpg"
+        image="/assets/imgs/og-default.jpg"
       />
       <Navbar />
 
@@ -119,7 +119,7 @@ export function HistoryPage() {
                 className="history-logistics__frame"
               >
                 <OptimizedImage
-                  src="/assets/imgs/history_1.jpg"
+                  src="/assets/imgs/history_1.webp"
                   alt="Logística compartilhada — RedeCoop RS"
                   loading="lazy"
                   placeholder

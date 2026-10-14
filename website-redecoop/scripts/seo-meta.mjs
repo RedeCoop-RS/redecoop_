@@ -34,7 +34,7 @@ export const staticRoutes = [
     title: 'Nossa Hist\u00f3ria',
     description:
       'Conhe\u00e7a a trajet\u00f3ria da RedeCoop RS: da chamada p\u00fablica Mais Gest\u00e3o em 2012 \u00e0 funda\u00e7\u00e3o em 2017 com 39 cooperativas e \u00e0 plataforma do cooperativismo em rede.',
-    image: '/assets/imgs/history_1.jpg',
+    image: DEFAULT_IMAGE,
     priority: '0.7',
     changefreq: 'monthly',
   },
@@ -43,7 +43,7 @@ export const staticRoutes = [
     title: 'Governan\u00e7a',
     description:
       'Como funciona a governan\u00e7a da RedeCoop RS: coopera\u00e7\u00e3o em rede, fortalecimento da agricultura familiar e renda distribu\u00edda entre os associados.',
-    image: '/assets/imgs/home_governance.jpg',
+    image: DEFAULT_IMAGE,
     priority: '0.7',
     changefreq: 'monthly',
   },

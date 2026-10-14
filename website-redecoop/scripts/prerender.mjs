@@ -22,6 +22,7 @@ import {
   spaShellRoutes,
   fullTitle,
 } from './seo-meta.mjs'
+import { bodyForPost, bodyForRoute } from './prerender-body.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const DIST = join(__dirname, '..', 'dist')
@@ -137,6 +138,17 @@ function applySeo(html, opts) {
   return out
 }
 
+function withBody(html, inner) {
+  const text = String(inner || '').trim()
+  if (!text) return html
+  const block = `\n    <main id="prerendered">\n${text}\n    </main>`
+  if (!html.includes('<div id="root"></div>')) {
+    console.warn('[prerender] <div id="root"> não encontrado; texto da rota não foi inserido')
+    return html
+  }
+  return html.replace('<div id="root"></div>', `${block}\n    <div id="root"></div>`)
+}
+
 function writeRouteHtml(path, html) {
   if (path === '/') {
     writeFileSync(join(DIST, 'index.html'), html)
@@ -223,6 +235,13 @@ async function main() {
     sameAs: ['https://instagram.com/redecooprs', 'https://facebook.com/RedeCoop-RS'],
   }
 
+  let posts = []
+  try {
+    posts = await fetchPosts()
+  } catch (err) {
+    console.warn(`[prerender] Aviso: posts Ghost não gerados (${err.message})`)
+  }
+
   let count = 0
   for (const route of staticRoutes) {
     const jsonLdExtra = []
@@ -239,13 +258,16 @@ async function main() {
       })
     }
 
-    const html = applySeo(shell, {
-      title: route.title,
-      description: route.description,
-      path: route.path,
-      image: route.image,
-      jsonLdExtra,
-    })
+    const html = withBody(
+      applySeo(shell, {
+        title: route.title,
+        description: route.description,
+        path: route.path,
+        image: route.image,
+        jsonLdExtra,
+      }),
+      bodyForRoute(route.path, { posts, email: CONTACT_EMAIL }),
+    )
     writeRouteHtml(route.path, html)
     count++
   }
@@ -260,17 +282,19 @@ async function main() {
     count++
   }
 
-  const notFound = applySeo(shell, {
-    title: 'Página não encontrada',
-    description: 'A página que você procura não existe ou foi movida.',
-    path: '/404',
-    noindex: true,
-  })
+  const notFound = withBody(
+    applySeo(shell, {
+      title: 'Página não encontrada',
+      description: 'A página que você procura não existe ou foi movida.',
+      path: '/404',
+      noindex: true,
+    }),
+    bodyForRoute('/404'),
+  )
   writeFileSync(join(DIST, '404.html'), notFound)
   count++
 
   try {
-    const posts = await fetchPosts()
     for (const post of posts) {
       const desc = (
         post.meta_description ||
@@ -283,7 +307,8 @@ async function main() {
         .slice(0, 160)
       const image = post.og_image || post.feature_image || DEFAULT_IMAGE
       const path = `/blog/${post.slug}`
-      const html = applySeo(shell, {
+      const html = withBody(
+        applySeo(shell, {
         title: post.title,
         description: desc || DEFAULT_DESCRIPTION,
         path,
@@ -318,13 +343,15 @@ async function main() {
             },
           },
         ],
-      })
+      }),
+        bodyForPost(post),
+      )
       writeRouteHtml(path, html)
       count++
     }
     console.log(`[prerender] ${posts.length} post(s) do blog`)
   } catch (err) {
-    console.warn(`[prerender] Aviso: posts Ghost não gerados (${err.message})`)
+    console.warn(`[prerender] Aviso ao gravar posts (${err.message})`)
   }
 
   console.log(`[prerender] ${count} HTML(s) gerados em ${DIST}`)

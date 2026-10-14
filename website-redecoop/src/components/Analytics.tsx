@@ -15,8 +15,9 @@ function ensureGtag(measurementId: string) {
   if (window.gtag) return
 
   window.dataLayer = window.dataLayer || []
-  window.gtag = function gtag(...args: unknown[]) {
-    window.dataLayer?.push(args)
+  // gtag.js só processa o objeto `arguments`. Um Array é ignorado e o hit não sai.
+  window.gtag = function gtag() {
+    window.dataLayer?.push(arguments)
   }
   window.gtag('js', new Date())
   window.gtag('config', measurementId, { send_page_view: false })

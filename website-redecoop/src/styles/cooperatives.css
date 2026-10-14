@@ -630,7 +630,7 @@
   padding: clamp(56px, 8vw, 80px) 0;
   background:
     linear-gradient(rgba(0, 107, 46, 0.88), rgba(0, 150, 64, 0.85)),
-    url('/assets/imgs/bgs/footer.jpg') center / cover no-repeat;
+    url('/assets/imgs/bgs/footer.webp') center / cover no-repeat;
 }
 
 .coop-budget__card {

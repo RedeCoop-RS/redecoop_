@@ -12,27 +12,27 @@ import '@/styles/blog.css'
 
 const services = [
   {
-    img: '/assets/imgs/services/representante_comercial.jpg',
+    img: '/assets/imgs/services/representante_comercial.webp',
     title: 'Representação Comercial',
     text: 'Serviço por adesão para facilitar e viabilizar o ingresso das cooperativas em novos mercados e ampliar a comercialização. O serviço também agrega solução de logística para atendimento destes mercados.',
   },
   {
-    img: '/assets/imgs/services/acessoria_juridica.jpg',
+    img: '/assets/imgs/services/acessoria_juridica.webp',
     title: 'Assessoria Jurídica',
     text: 'Serviço de assessoria jurídica por adesão para atendimento das cooperativas, de forma facilitada e custo otimizado.',
   },
   {
-    img: '/assets/imgs/services/acessoria_comunicacao.jpg',
+    img: '/assets/imgs/services/acessoria_comunicacao.webp',
     title: 'Assessoria de Comunicação',
     text: 'Serviço de assessoria por adesão para orientações e soluções visando a profissionalização do serviço de comunicação e a qualificação dos produtos da agricultura familiar.',
   },
   {
-    img: '/assets/imgs/services/rastreabilidade.jpg',
+    img: '/assets/imgs/services/rastreabilidade.webp',
     title: 'Rastreabilidade',
     text: 'Sistemas de rastreabilidade e contratação mediante adesão, para melhoria do processo de organização da produção e garantia de qualidade do alimento.',
   },
   {
-    img: '/assets/imgs/services/sistema_gestao.jpg',
+    img: '/assets/imgs/services/sistema_gestao.webp',
     title: 'Sistemas de Gestão',
     text: 'Sistemas disponíveis e contratação mediante adesão, para qualificação dos processos de gestão das cooperativas.',
   },
@@ -48,7 +48,7 @@ const qualities = [
 const testimonials = [
   { logo: '/assets/imgs/testimonial/logo_unicafes_word.png', org: 'Unicafes RS', name: 'Gervásio Plucinski', role: 'Presidente', text: 'A Redecoop é fundamental na logística dos produtos da Agricultura Familiar.' },
   { logo: '/assets/imgs/testimonial/prefeitura_itati.png', org: 'Prefeitura Municipal de Itati', name: 'Samanta Sparremberger', role: 'Nutricionista', text: 'A Redecoop é fundamental para organização das cooperativas, garantindo que os alimentos saudáveis cheguem a um preço justo até os consumidores.' },
-  { logo: '/assets/imgs/testimonial/emater.jpg', org: 'ASCAR/EMATER-RS', name: 'Marcelo Souza Cotrim', role: 'Coordenador da Unidade de Cooperativismo de Porto Alegre', text: 'O trabalho da RedeCoop representa a maior forma de organização e intercooperação das cooperativas da Agricultura familiar no Rio Grande do Sul na atualidade.' },
+  { logo: '/assets/imgs/testimonial/emater.webp', org: 'ASCAR/EMATER-RS', name: 'Marcelo Souza Cotrim', role: 'Coordenador da Unidade de Cooperativismo de Porto Alegre', text: 'O trabalho da RedeCoop representa a maior forma de organização e intercooperação das cooperativas da Agricultura familiar no Rio Grande do Sul na atualidade.' },
   { logo: '/assets/imgs/testimonial/terra_livre.png', org: 'Cooperativa Terra Livre', name: 'Djones Zucolotto', role: 'Comercial', text: 'A Redecoop é uma ferramenta que vem sendo construída com varias mãos ao longo dos últimos anos e tem cumprido um papel fundamental.' },
   { logo: '/assets/imgs/testimonial/GHC_Logo.png', org: 'Grupo Hospitalar Conceição', name: 'Alex Borba dos Santos', role: 'Chefe de Gabinete da Presidência', text: 'Para nós do Grupo Hospitalar Conceição, a organização da Rede Coop tem sido essencial para garantir o abastecimento da agricultura familiar aos nossos hospitais.' },
 ]

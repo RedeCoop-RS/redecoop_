@@ -28,7 +28,7 @@ const pillars = [
 ]
 
 const images = Array.from({ length: 9 }, (_, i) => ({
-  src: `/assets/imgs/governance/${i + 1}.jpg`,
+  src: `/assets/imgs/governance/${i + 1}.webp`,
   alt: `Governança da cooperação solidária — cooperativas RedeCoop RS (${i + 1})`,
   span: i + 1,
 }))
@@ -42,7 +42,7 @@ export function GovernancePage() {
         title="Governança"
         description="Como funciona a governança da RedeCoop RS: cooperação em rede, fortalecimento da agricultura familiar e renda distribuída entre os associados."
         path="/governanca"
-        image="/assets/imgs/home_governance.jpg"
+        image="/assets/imgs/og-default.jpg"
       />
       <Navbar />
 
@@ -93,7 +93,7 @@ export function GovernancePage() {
                 className="gov-intro__frame"
               >
                 <OptimizedImage
-                  src="/assets/imgs/home_governance.jpg"
+                  src="/assets/imgs/home_governance.webp"
                   alt="Governança da cooperação solidária — RedeCoop RS"
                   loading="lazy"
                   placeholder
