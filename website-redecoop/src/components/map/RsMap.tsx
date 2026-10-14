@@ -72,11 +72,32 @@ function clearMarkerHighlight(marker: SVGGElement | null) {
   if (pinBody) pinBody.style.filter = ''
 }
 
-function buildPinMarkup(type: CooperativeSummary['type'], uid: number) {
+const MAP_VIEWBOX = '-70 -55 650 600'
+
+function ensurePinDefs(svgRoot: SVGSVGElement) {
+  if (svgRoot.querySelector('#pin-shadow')) return
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs')
+  defs.innerHTML = `
+    <filter id="pin-shadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.35)"/>
+    </filter>
+    <radialGradient id="pin-grad-central" cx="40%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#7dffe8"/>
+      <stop offset="100%" stop-color="#32FFC5"/>
+    </radialGradient>
+    <radialGradient id="pin-grad-singular" cx="40%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#4cd686"/>
+      <stop offset="100%" stop-color="#009640"/>
+    </radialGradient>
+  `
+  svgRoot.appendChild(defs)
+}
+
+function buildPinMarkup(type: CooperativeSummary['type']) {
   const isCentral = type === 'CENTRAL'
-  const fill = isCentral ? '#32FFC5' : '#009640'
   const stroke = isCentral ? '#14b8a6' : '#007a35'
   const glow = isCentral ? 'rgba(50,255,197,0.45)' : 'rgba(0,150,64,0.4)'
+  const grad = isCentral ? 'url(#pin-grad-central)' : 'url(#pin-grad-singular)'
   const w = isCentral ? 28 : 25
   const h = isCentral ? 27 : 24
 
@@ -84,18 +105,9 @@ function buildPinMarkup(type: CooperativeSummary['type'], uid: number) {
     w,
     h,
     html: `
-      <defs>
-        <filter id="pin-shadow-${uid}" x="-50%" y="-50%" width="200%" height="200%">
-          <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.35)"/>
-        </filter>
-        <radialGradient id="pin-grad-${uid}" cx="40%" cy="35%" r="65%">
-          <stop offset="0%" stop-color="${isCentral ? '#7dffe8' : '#4cd686'}"/>
-          <stop offset="100%" stop-color="${fill}"/>
-        </radialGradient>
-      </defs>
       <path d="${PIN_PATH}" fill="transparent" class="pin-hit" pointer-events="visiblePainted"/>
-      <g filter="url(#pin-shadow-${uid})" class="pin-body" pointer-events="none">
-        <path d="${PIN_PATH}" fill="url(#pin-grad-${uid})" stroke="${stroke}" stroke-width="1.2"/>
+      <g filter="url(#pin-shadow)" class="pin-body" pointer-events="none">
+        <path d="${PIN_PATH}" fill="${grad}" stroke="${stroke}" stroke-width="1.2"/>
         <ellipse cx="12.5811" cy="21.5" rx="5" ry="1.5" fill="${glow}" opacity="0.6"/>
       </g>
     `,
@@ -107,7 +119,7 @@ interface RsMapProps {
 }
 
 export function RsMap({ size = 'default' }: RsMapProps) {
-  const mapContainerRef = useRef<HTMLDivElement>(null)
+  const markersSvgRef = useRef<SVGSVGElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
   const markerPositions = useRef(new Map<string, number>())
   const coopByIdRef = useRef(new Map<number, CooperativeSummary>())
@@ -119,8 +131,6 @@ export function RsMap({ size = 'default' }: RsMapProps) {
   } | null>(null)
 
   const [cooperatives, setCooperatives] = useState<CooperativeSummary[]>([])
-  const [svgHtml, setSvgHtml] = useState('')
-  const [svgReady, setSvgReady] = useState(false)
   const [overrides, setOverrides] = useState<MarkerOverrides>({})
 
   const { isLoggedIn } = useAuth()
@@ -130,20 +140,6 @@ export function RsMap({ size = 'default' }: RsMapProps) {
   useEffect(() => {
     loadMarkerOverrides().then(setOverrides)
   }, [])
-
-  useEffect(() => {
-    fetch('/assets/imgs/mapa_svg.svg')
-      .then((r) => r.text())
-      .then((html) => setSvgHtml(html))
-      .catch(() => {})
-  }, [])
-
-  useEffect(() => {
-    const el = mapContainerRef.current
-    if (!el || !svgHtml || el.querySelector('svg')) return
-    el.innerHTML = svgHtml
-    setSvgReady(true)
-  }, [svgHtml])
 
   const showTooltip = (coop: CooperativeSummary, clientX: number, clientY: number) => {
     const tooltip = tooltipRef.current
@@ -188,9 +184,10 @@ export function RsMap({ size = 'default' }: RsMapProps) {
   )
 
   const renderMarkers = useCallback(() => {
-    const svgRoot = mapContainerRef.current?.querySelector('svg') as SVGSVGElement | null
+    const svgRoot = markersSvgRef.current
     if (!svgRoot) return
 
+    ensurePinDefs(svgRoot)
     svgRoot.querySelectorAll('.map-marker').forEach((el) => el.remove())
     markerPositions.current.clear()
 
@@ -207,7 +204,7 @@ export function RsMap({ size = 'default' }: RsMapProps) {
 
       const base = calcBasePosition(coop, markerPositions.current)
       const { x, y } = applyOffset(base.x, base.y, coop.id, overrides)
-      const pin = buildPinMarkup(coop.type, coop.id)
+      const pin = buildPinMarkup(coop.type)
 
       const marker = document.createElementNS('http://www.w3.org/2000/svg', 'g')
       marker.setAttribute('class', 'map-marker')
@@ -258,7 +255,7 @@ export function RsMap({ size = 'default' }: RsMapProps) {
       const pinBody = marker.querySelector('.pin-body') as SVGGElement | null
 
       if (coop && pinBody) {
-        pinBody.style.filter = `url(#pin-shadow-${coopId}) brightness(1.12)`
+        pinBody.style.filter = 'url(#pin-shadow) brightness(1.12)'
         showTooltip(coop, e.clientX, e.clientY)
       }
     }
@@ -282,17 +279,37 @@ export function RsMap({ size = 'default' }: RsMapProps) {
   }, [cooperatives, overrides, navigateToCoop])
 
   useEffect(() => {
-    cooperativeService
-      .getCooperatives()
-      .then((data) => setCooperatives(Array.isArray(data) ? data : []))
-      .catch(() => setCooperatives([]))
+    let cancelled = false
+    const load = () => {
+      if (cancelled) return
+      cooperativeService
+        .getCooperatives()
+        .then((data) => {
+          if (!cancelled) setCooperatives(Array.isArray(data) ? data : [])
+        })
+        .catch(() => {
+          if (!cancelled) setCooperatives([])
+        })
+    }
+
+    const idleId =
+      typeof window.requestIdleCallback === 'function'
+        ? window.requestIdleCallback(load, { timeout: 1200 })
+        : 0
+    const timerId = idleId ? 0 : window.setTimeout(load, 250)
+
+    return () => {
+      cancelled = true
+      if (idleId) window.cancelIdleCallback(idleId)
+      if (timerId) window.clearTimeout(timerId)
+    }
   }, [])
 
   useEffect(() => {
-    if (svgReady && cooperatives.length > 0) {
-      requestAnimationFrame(() => renderMarkers())
-    }
-  }, [svgReady, svgHtml, cooperatives, overrides, renderMarkers])
+    if (cooperatives.length === 0) return
+    const frame = requestAnimationFrame(() => renderMarkers())
+    return () => cancelAnimationFrame(frame)
+  }, [cooperatives, overrides, renderMarkers])
 
   const mapSizeClass =
     size === 'large'
@@ -301,11 +318,24 @@ export function RsMap({ size = 'default' }: RsMapProps) {
 
   return (
     <div className="relative">
-      <div
-        ref={mapContainerRef}
-        className={`${mapSizeClass} [&_svg]:block [&_svg]:w-full [&_svg]:h-auto [&_svg]:overflow-visible`}
-        aria-label="Mapa do Rio Grande do Sul com cooperativas"
-      />
+      <div className={`relative ${mapSizeClass}`} aria-label="Mapa do Rio Grande do Sul com cooperativas">
+        <img
+          src="/assets/imgs/mapa-rs.webp"
+          alt=""
+          width={1600}
+          height={1477}
+          decoding="async"
+          loading="lazy"
+          fetchPriority="low"
+          draggable={false}
+          className="pointer-events-none block h-auto w-full select-none"
+        />
+        <svg
+          ref={markersSvgRef}
+          viewBox={MAP_VIEWBOX}
+          className="absolute inset-0 h-full w-full overflow-visible"
+        />
+      </div>
 
       <div
         ref={tooltipRef}

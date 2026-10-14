@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { lazy, Suspense, type ReactNode } from 'react'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { Analytics } from '@/components/Analytics'
@@ -8,18 +9,30 @@ import { AuthProvider } from '@/contexts/AuthContext'
 import { ModalProvider } from '@/contexts/ModalContext'
 import { ModalManager } from '@/components/modals/ModalManager'
 import { HomePage } from '@/pages/HomePage'
-import { HistoryPage } from '@/pages/HistoryPage'
-import { GovernancePage } from '@/pages/GovernancePage'
-import { ServicesPage } from '@/pages/ServicesPage'
-import { PlatformPage } from '@/pages/PlatformPage'
-import { CooperativesPage } from '@/pages/CooperativesPage'
-import { BlogPage } from '@/pages/BlogPage'
-import { BlogPostPage } from '@/pages/BlogPostPage'
-import { CompleteRegistrationPage } from '@/pages/CompleteRegistrationPage'
-import { ContactPage } from '@/pages/ContactPage'
-import { PrivacyPage } from '@/pages/PrivacyPage'
-import { NotFoundPage } from '@/pages/NotFoundPage'
 import { RequireAuth } from '@/components/auth/RequireAuth'
+
+const HistoryPage = lazy(() => import('@/pages/HistoryPage').then((m) => ({ default: m.HistoryPage })))
+const GovernancePage = lazy(() => import('@/pages/GovernancePage').then((m) => ({ default: m.GovernancePage })))
+const ServicesPage = lazy(() => import('@/pages/ServicesPage').then((m) => ({ default: m.ServicesPage })))
+const PlatformPage = lazy(() => import('@/pages/PlatformPage').then((m) => ({ default: m.PlatformPage })))
+const CooperativesPage = lazy(() => import('@/pages/CooperativesPage').then((m) => ({ default: m.CooperativesPage })))
+const BlogPage = lazy(() => import('@/pages/BlogPage').then((m) => ({ default: m.BlogPage })))
+const BlogPostPage = lazy(() => import('@/pages/BlogPostPage').then((m) => ({ default: m.BlogPostPage })))
+const CompleteRegistrationPage = lazy(() =>
+  import('@/pages/CompleteRegistrationPage').then((m) => ({ default: m.CompleteRegistrationPage })),
+)
+const ContactPage = lazy(() => import('@/pages/ContactPage').then((m) => ({ default: m.ContactPage })))
+const PrivacyPage = lazy(() => import('@/pages/PrivacyPage').then((m) => ({ default: m.PrivacyPage })))
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
+
+function PageEnter({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation()
+  return (
+    <div key={pathname} className="page-enter">
+      {children}
+    </div>
+  )
+}
 
 export default function App() {
   return (
@@ -30,6 +43,8 @@ export default function App() {
       <SiteAnalytics />
       <AuthProvider>
         <ModalProvider>
+          <Suspense fallback={<div className="min-h-screen" />}>
+          <PageEnter>
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/historia" element={<HistoryPage />} />
@@ -51,6 +66,8 @@ export default function App() {
             <Route path="/completar-cadastro/:token" element={<CompleteRegistrationPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
+          </PageEnter>
+          </Suspense>
           <ModalManager />
           <Toaster
             position="top-right"

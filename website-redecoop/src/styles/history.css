@@ -1,10 +1,5 @@
 /* Nossa História — estilo editorial */
 
-@keyframes historyFadeUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
 .history-page {
   background: #f5f5f5;
   overflow-x: hidden;
@@ -36,7 +31,6 @@
 .history-hero__content {
   position: relative;
   text-align: center;
-  animation: historyFadeUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .history-hero__kicker {
@@ -86,7 +80,6 @@
 .history-intro__card {
   max-width: 820px;
   margin: 0 auto;
-  animation: historyFadeUp 0.55s 0.1s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .history-intro__lead {
@@ -240,7 +233,6 @@
   position: relative;
   text-align: left;
   padding: 0 6px;
-  animation: historyFadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
   cursor: default;
 }
 

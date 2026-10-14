@@ -12,7 +12,6 @@ import { HomeBlogSection } from '@/components/home/HomeBlogSection'
 import { useModal } from '@/contexts/ModalContext'
 import { environment } from '@/config/environment'
 import { ghostService } from '@/services/ghost.service'
-import { fadeIn } from '@/lib/motion'
 import type { GhostPost } from '@/types'
 
 export function HomePage() {
@@ -77,7 +76,7 @@ export function HomePage() {
 
         <div className="relative mx-auto max-w-7xl px-4 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <motion.div {...fadeIn}>
+            <div>
               <span className="inline-block rounded-full bg-white/20 px-4 py-1.5 text-sm font-medium text-white/90 mb-6">
                 Agricultura familiar · Economia solidária · RS
               </span>
@@ -113,14 +112,14 @@ export function HomePage() {
                   </Link>
                 </motion.div>
               </div>
-            </motion.div>
+            </div>
 
             <div className="flex justify-center">
               <img
-                src="/assets/imgs/banner-content.png"
+                src="/assets/imgs/banner-content.webp"
                 alt="Ilustração RedeCoop RS"
-                width={448}
-                height={448}
+                width={599}
+                height={470}
                 decoding="async"
                 fetchPriority="high"
                 className="w-full max-w-sm lg:max-w-md h-auto drop-shadow-2xl"
