@@ -144,6 +144,77 @@ describe('MailboxService', () => {
     expect(JSON.stringify(audits[0])).not.toContain('senha-de-app-hostinger');
   });
 
+  describe('testConnection', () => {
+    const testDto = {
+      email: dto.email,
+      imapHost: dto.imapHost,
+      imapPort: dto.imapPort,
+      imapSecure: dto.imapSecure,
+      smtpHost: dto.smtpHost,
+      smtpPort: dto.smtpPort,
+      smtpSecure: dto.smtpSecure,
+      username: dto.username,
+      password: dto.password,
+    };
+
+    beforeEach(() => {
+      imap.test.mockReset().mockResolvedValue(undefined);
+      smtp.verify.mockReset().mockResolvedValue(undefined);
+    });
+
+    it('valida IMAP e SMTP da Hostinger sem gravar a conta', async () => {
+      const result = await service.testConnection(1, testDto);
+      expect(result.ok).toBe(true);
+      expect(imap.test).toHaveBeenCalledWith(
+        expect.objectContaining({
+          imapHost: 'imap.hostinger.com',
+          imapPort: 993,
+          imapSecure: true,
+          username: dto.email,
+          password: dto.password,
+        }),
+      );
+      expect(smtp.verify).toHaveBeenCalledWith(
+        expect.objectContaining({
+          smtpHost: 'smtp.hostinger.com',
+          smtpPort: 465,
+          smtpSecure: true,
+        }),
+      );
+      expect(stored).toBeNull();
+    });
+
+    it('usa a senha salva quando o campo vem vazio', async () => {
+      await service.saveAccount(1, dto);
+      await service.testConnection(1, { ...testDto, password: '' });
+      expect(imap.test.mock.calls[0][0].password).toBe(dto.password);
+    });
+
+    it('exige senha quando ainda não há conta', async () => {
+      await expect(
+        service.testConnection(1, { ...testDto, password: undefined }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(imap.test).not.toHaveBeenCalled();
+    });
+
+    it('indica falha de IMAP sem vazar a senha e sem testar SMTP', async () => {
+      imap.test.mockRejectedValue(new Error(`Authentication failed for ${dto.password}`));
+      const error = await service.testConnection(1, testDto).catch((value) => value);
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect(error.message).toContain('IMAP (imap.hostinger.com:993)');
+      expect(error.message).toContain('Falha de autenticação');
+      expect(error.message).not.toContain(dto.password);
+      expect(smtp.verify).not.toHaveBeenCalled();
+    });
+
+    it('indica falha de SMTP depois de IMAP aprovado', async () => {
+      smtp.verify.mockRejectedValue(new Error('connect ETIMEDOUT'));
+      const error = await service.testConnection(1, testDto).catch((value) => value);
+      expect(error.message).toContain('SMTP (smtp.hostinger.com:465)');
+      expect(error.message).toContain('Confira host, porta e TLS');
+    });
+  });
+
   it('aplica limite de envio', async () => {
     await service.saveAccount(1, dto);
     const body = { to: 'eduardo@redecoop.rs', subject: 'Oi', html: '<p>Oi</p>' };

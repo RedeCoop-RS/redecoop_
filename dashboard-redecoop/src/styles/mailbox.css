@@ -462,6 +462,16 @@
   font-size: 0.875rem;
 }
 
+.mailbox-settings__checks label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.mailbox-settings__signature {
+  margin-top: 1rem;
+}
+
 .mailbox-settings__status {
   margin: 0.5rem 0;
   font-size: 0.875rem;

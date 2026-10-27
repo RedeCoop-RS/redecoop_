@@ -36,6 +36,7 @@ interface FormState {
 }
 
 const HOSTINGER = presetById('hostinger')!
+const TEST_TOAST = 'mailbox-connection-test'
 
 function blankForm(): FormState {
   return {
@@ -174,7 +175,7 @@ export function MailboxSettings({ account, onClose, onSaved }: MailboxSettingsPr
   async function testConnection() {
     const problem = validate()
     if (problem) {
-      notify.error(problem)
+      notify.error(problem, { id: TEST_TOAST })
       setTestMessage(problem)
       return false
     }
@@ -195,13 +196,13 @@ export function MailboxSettings({ account, onClose, onSaved }: MailboxSettingsPr
       })
       setTestedKey(connectionKey(form))
       setTestMessage(result.message)
-      notify.success(result.message)
+      notify.success(result.message, { id: TEST_TOAST })
       return true
     } catch (error) {
       const message = mailboxErrorMessage(error)
       setTestedKey(null)
       setTestMessage(message)
-      notify.error(message)
+      notify.error(message, { id: TEST_TOAST })
       return false
     } finally {
       setTesting(false)

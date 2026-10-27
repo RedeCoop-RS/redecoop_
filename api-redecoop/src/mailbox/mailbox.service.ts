@@ -132,11 +132,29 @@ export class MailboxService {
       MAILBOX_LIMITS.test.windowMs,
     );
     const creds = await this.credentialsFromInput(dto);
-    try {
-      await this.imap.test(creds);
-      await this.smtp.verify(creds);
-    } catch (error) {
-      throw this.fail(error, 'Não foi possível conectar via IMAP ou SMTP.', creds.password);
+    const steps = [
+      {
+        name: 'IMAP',
+        host: creds.imapHost,
+        port: creds.imapPort,
+        run: () => this.imap.test(creds),
+      },
+      {
+        name: 'SMTP',
+        host: creds.smtpHost,
+        port: creds.smtpPort,
+        run: () => this.smtp.verify(creds),
+      },
+    ];
+    for (const step of steps) {
+      try {
+        await step.run();
+      } catch (error) {
+        const failure = this.fail(error, 'Não foi possível conectar.', creds.password);
+        throw new BadRequestException(
+          `${step.name} (${step.host}:${step.port}): ${failure.message}`,
+        );
+      }
     }
     return { ok: true, message: 'IMAP e SMTP conectaram com sucesso.' };
   }
