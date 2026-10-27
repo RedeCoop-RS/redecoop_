@@ -6,6 +6,12 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+export interface MailboxSignature {
+  id: string;
+  name: string;
+  html: string;
+}
+
 @Entity('mailbox_account')
 export class MailboxAccount {
   @PrimaryGeneratedColumn()
@@ -47,6 +53,15 @@ export class MailboxAccount {
 
   @Column({ type: 'text', nullable: true })
   signatureHtml: string;
+
+  @Column({ type: 'simple-json', nullable: true })
+  signatures: MailboxSignature[];
+
+  @Column({ length: 64, nullable: true })
+  defaultSignatureId: string;
+
+  @Column({ type: 'int', default: 10 })
+  undoSendSeconds: number;
 
   @Column({ type: 'int', default: 60 })
   syncIntervalSeconds: number;

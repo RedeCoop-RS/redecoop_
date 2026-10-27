@@ -2,9 +2,39 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ImapFlow, ImapFlowOptions } from 'imapflow';
 import { Readable } from 'stream';
 import { tlsRejectUnauthorized } from './mailbox.constants';
-import { MailboxCredentials, RemoteEnvelope, RemoteFolder } from './mailbox.types';
+import { MailboxCredentials, MailboxQuota, RemoteEnvelope, RemoteFolder } from './mailbox.types';
 import { structureHasAttachment } from './imap/folder-classifier';
 import { MailAddress } from './imap/addresses';
+import { decodePreviewPart, headerFlags, previewPart } from './imap/headers';
+import { snippetFromText } from './imap/thread';
+
+const HEADER_FIELDS = [
+  'x-priority',
+  'importance',
+  'priority',
+  'list-unsubscribe',
+  'disposition-notification-to',
+];
+
+const ENVELOPE_QUERY = {
+  envelope: true,
+  flags: true,
+  bodyStructure: true,
+  size: true,
+  uid: true,
+  internalDate: true,
+  headers: HEADER_FIELDS,
+};
+
+export const MAX_SOURCE_BYTES = 60 * 1024 * 1024;
+
+export interface PreviewRequest {
+  uid: number;
+  part: string;
+  encoding?: string;
+  charset?: string;
+  html: boolean;
+}
 
 function flagValues(flags?: Set<string> | string[]): string[] {
   if (!flags) return [];
@@ -103,6 +133,7 @@ export class MailboxImapService {
       return {
         path: box.path,
         name: box.name || box.path,
+        delimiter: box.delimiter || '/',
         specialUse: box.specialUse,
         flags,
         selectable: !flags.some((flag) => flag.toLowerCase() === '\\noselect'),
@@ -127,14 +158,7 @@ export class MailboxImapService {
         if (!exists) return { uidValidity: String(box.uidValidity), exists: 0, messages: [] };
         const start = Math.max(1, exists - limit + 1);
         const messages: RemoteEnvelope[] = [];
-        for await (const msg of client.fetch(`${start}:*`, {
-          envelope: true,
-          flags: true,
-          bodyStructure: true,
-          size: true,
-          uid: true,
-          internalDate: true,
-        })) {
+        for await (const msg of client.fetch(`${start}:*`, ENVELOPE_QUERY)) {
           messages.push(this.toEnvelope(msg));
         }
         return { uidValidity: String(box.uidValidity), exists, messages };
@@ -161,18 +185,7 @@ export class MailboxImapService {
         const uids = (found || []).slice(-100);
         if (!uids.length) return { uidValidity, messages: [] };
         const messages: RemoteEnvelope[] = [];
-        for await (const msg of client.fetch(
-          uids,
-          {
-            envelope: true,
-            flags: true,
-            bodyStructure: true,
-            size: true,
-            uid: true,
-            internalDate: true,
-          },
-          { uid: true },
-        )) {
+        for await (const msg of client.fetch(uids, ENVELOPE_QUERY, { uid: true })) {
           messages.push(this.toEnvelope(msg));
         }
         return { uidValidity, messages };
@@ -188,7 +201,7 @@ export class MailboxImapService {
       try {
         const downloaded = await client.download(String(uid), undefined, { uid: true });
         if (!downloaded) throw new Error('MESSAGE_NOT_FOUND');
-        return await streamToBuffer(downloaded.content, 20 * 1024 * 1024);
+        return await streamToBuffer(downloaded.content, MAX_SOURCE_BYTES);
       } finally {
         lock.release();
       }
@@ -261,6 +274,102 @@ export class MailboxImapService {
     });
   }
 
+  /** Busca só o começo da parte de texto para montar a prévia da lista. */
+  async fetchPreviews(
+    creds: MailboxCredentials,
+    path: string,
+    requests: PreviewRequest[],
+  ): Promise<Map<number, string>> {
+    const result = new Map<number, string>();
+    if (!requests.length) return result;
+    const groups = new Map<string, PreviewRequest[]>();
+    for (const request of requests) {
+      const list = groups.get(request.part) ?? [];
+      list.push(request);
+      groups.set(request.part, list);
+    }
+    await this.withClient(creds, async (client) => {
+      const lock = await client.getMailboxLock(path);
+      try {
+        for (const [part, items] of groups) {
+          const byUid = new Map(items.map((item) => [item.uid, item]));
+          for await (const msg of client.fetch(
+            items.map((item) => item.uid),
+            { uid: true, bodyParts: [{ key: part, start: 0, maxLength: 2048 } as never] },
+            { uid: true },
+          )) {
+            const request = byUid.get(msg.uid);
+            const chunk = msg.bodyParts?.get(part);
+            if (!request || !chunk) continue;
+            const text = decodePreviewPart(chunk, request.encoding, request.charset, request.html);
+            const snippet = snippetFromText(text);
+            if (snippet) result.set(msg.uid, snippet);
+          }
+        }
+      } finally {
+        lock.release();
+      }
+    });
+    return result;
+  }
+
+  async markAllSeen(creds: MailboxCredentials, path: string): Promise<void> {
+    await this.withClient(creds, async (client) => {
+      const lock = await client.getMailboxLock(path);
+      try {
+        if (client.mailbox && client.mailbox.exists > 0) {
+          await client.messageFlagsAdd('1:*', ['\\Seen']);
+        }
+      } finally {
+        lock.release();
+      }
+    });
+  }
+
+  async deleteAll(creds: MailboxCredentials, path: string): Promise<number> {
+    return this.withClient(creds, async (client) => {
+      const lock = await client.getMailboxLock(path);
+      try {
+        const exists = client.mailbox ? client.mailbox.exists : 0;
+        if (exists > 0) await client.messageDelete('1:*');
+        return exists;
+      } finally {
+        lock.release();
+      }
+    });
+  }
+
+  async createFolder(creds: MailboxCredentials, path: string): Promise<void> {
+    await this.withClient(creds, async (client) => {
+      await client.mailboxCreate(path);
+      await client.mailboxSubscribe(path).catch(() => undefined);
+    });
+  }
+
+  async renameFolder(creds: MailboxCredentials, path: string, nextPath: string): Promise<void> {
+    await this.withClient(creds, async (client) => {
+      await client.mailboxRename(path, nextPath);
+      await client.mailboxSubscribe(nextPath).catch(() => undefined);
+    });
+  }
+
+  async deleteFolder(creds: MailboxCredentials, path: string): Promise<void> {
+    await this.withClient(creds, async (client) => {
+      await client.mailboxDelete(path);
+    });
+  }
+
+  async quota(creds: MailboxCredentials): Promise<MailboxQuota | null> {
+    return this.withClient(creds, async (client) => {
+      if (!client.capabilities.has('QUOTA')) return null;
+      const quota = await client.getQuota('INBOX').catch(() => false as const);
+      if (!quota || !quota.storage || !quota.storage.limit) return null;
+      // A tipagem do imapflow diz `used`, mas em tempo de execução o campo vem como `usage`.
+      const storage = quota.storage as { used?: number; usage?: number; limit: number };
+      return { usage: storage.usage ?? storage.used ?? 0, limit: storage.limit };
+    });
+  }
+
   async ensureFolder(creds: MailboxCredentials, path: string): Promise<void> {
     await this.withClient(creds, async (client) => {
       const boxes = await client.list();
@@ -285,8 +394,11 @@ export class MailboxImapService {
     bodyStructure?: { disposition?: string; type: string; childNodes?: unknown[] };
     size?: number;
     internalDate?: Date | string;
+    headers?: Buffer;
   }): RemoteEnvelope {
     const flags = flagValues(msg.flags);
+    const extra = headerFlags(msg.headers);
+    const preview = previewPart(msg.bodyStructure as never);
     const from = msg.envelope?.from?.[0];
     const date = msg.envelope?.date
       ? new Date(msg.envelope.date)
@@ -309,6 +421,11 @@ export class MailboxImapService {
       answered: hasFlag(flags, '\\Answered'),
       hasAttachments: structureHasAttachment(msg.bodyStructure as never),
       size: msg.size || 0,
+      priority: extra.priority,
+      listUnsubscribe: extra.listUnsubscribe,
+      receiptTo: extra.receiptTo,
+      headersCached: Boolean(msg.headers),
+      previewPart: preview || undefined,
     };
   }
 }

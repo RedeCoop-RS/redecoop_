@@ -20,6 +20,9 @@ export class MailboxDraftAttachment {
   @Column({ length: 255 })
   storageName: string;
 
+  @Column({ length: 191, nullable: true })
+  contentId: string;
+
   @CreateDateColumn()
   createdAt: Date;
 }

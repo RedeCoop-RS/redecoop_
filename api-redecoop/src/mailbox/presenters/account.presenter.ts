@@ -1,4 +1,12 @@
-import { MailboxAccount } from '../entities/mailbox-account.entity';
+import { MailboxAccount, MailboxSignature } from '../entities/mailbox-account.entity';
+
+export function accountSignatures(account: MailboxAccount): MailboxSignature[] {
+  if (Array.isArray(account.signatures) && account.signatures.length) return account.signatures;
+  if (account.signatureHtml?.trim()) {
+    return [{ id: 'principal', name: 'Principal', html: account.signatureHtml }];
+  }
+  return [];
+}
 
 export interface AccountView {
   configured: boolean;
@@ -15,6 +23,9 @@ export interface AccountView {
   username?: string;
   hasPassword: boolean;
   signatureHtml?: string;
+  signatures?: MailboxSignature[];
+  defaultSignatureId?: string | null;
+  undoSendSeconds?: number;
   syncIntervalSeconds?: number;
   lastSyncAt?: Date | null;
   lastError?: string | null;
@@ -43,6 +54,10 @@ export function toAccountView(account: MailboxAccount | null, unread = 0): Accou
     username: account.username,
     hasPassword: Boolean(account.passwordCipher),
     signatureHtml: account.signatureHtml || '',
+    signatures: accountSignatures(account),
+    defaultSignatureId:
+      account.defaultSignatureId || accountSignatures(account)[0]?.id || null,
+    undoSendSeconds: account.undoSendSeconds ?? 10,
     syncIntervalSeconds: account.syncIntervalSeconds,
     lastSyncAt: account.lastSyncAt,
     lastError: account.lastError,

@@ -19,14 +19,19 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
-import { Roles } from '@/_common/decorators/role.decorator';
-import { UserRole } from '@/User/entities/user.entity';
 import { MailboxService } from './mailbox.service';
 import { MailboxSuperAdminGuard } from './security/mailbox-super-admin.guard';
 import { MailboxUploadExceptionFilter, mailboxMulterOptions } from './mailbox.upload';
 import {
+  AttachOriginalDto,
   AttachmentQueryDto,
   AuditQueryDto,
+  ContactsQueryDto,
+  CreateFolderDto,
+  FolderPathDto,
+  MessageRefDto,
+  ReceiptDto,
+  RenameFolderDto,
   FlaggedDto,
   ListMessagesDto,
   MessageUidsDto,
@@ -46,8 +51,12 @@ interface AuthRequest extends Request {
 
 @ApiBearerAuth()
 @ApiTags('Mailbox')
+/**
+ * Sem @Roles de propósito: o AuthGuard global só autentica (401 sem token) e o
+ * MailboxSuperAdminGuard devolve 403 para quem não é ADMIN. Com @Roles o guard
+ * global responderia 401 e o painel trataria como sessão expirada.
+ */
 @Controller('root/mailbox')
-@Roles(UserRole.ADMIN)
 @UseGuards(MailboxSuperAdminGuard)
 export class MailboxController {
   constructor(private readonly mailbox: MailboxService) {}
@@ -79,6 +88,46 @@ export class MailboxController {
   @Get('folders')
   folders() {
     return this.mailbox.listFolders();
+  }
+
+  @Post('folders')
+  @ApiOperation({ summary: 'Criar pasta' })
+  createFolder(@Body() dto: CreateFolderDto) {
+    return this.mailbox.createFolder(dto);
+  }
+
+  @Put('folders')
+  @ApiOperation({ summary: 'Renomear pasta' })
+  renameFolder(@Body() dto: RenameFolderDto) {
+    return this.mailbox.renameFolder(dto);
+  }
+
+  @Post('folders/delete')
+  @ApiOperation({ summary: 'Excluir pasta (vazia de subpastas)' })
+  deleteFolder(@Body() dto: FolderPathDto) {
+    return this.mailbox.deleteFolder(dto.path);
+  }
+
+  @Post('folders/read-all')
+  @ApiOperation({ summary: 'Marcar todas as mensagens da pasta como lidas' })
+  readAll(@Body() dto: FolderPathDto) {
+    return this.mailbox.markAllSeen(dto.path);
+  }
+
+  @Post('folders/empty')
+  @ApiOperation({ summary: 'Esvaziar lixeira ou spam' })
+  emptyFolder(@Body() dto: FolderPathDto) {
+    return this.mailbox.emptyFolder(dto.path);
+  }
+
+  @Get('quota')
+  quota() {
+    return this.mailbox.quota();
+  }
+
+  @Get('contacts')
+  contacts(@Query() query: ContactsQueryDto) {
+    return this.mailbox.contacts(query.q);
   }
 
   @Post('sync')
@@ -136,10 +185,29 @@ export class MailboxController {
     return this.mailbox.restore(dto.uids);
   }
 
+  @Post('messages/not-spam')
+  notSpam(@Body() dto: MessageUidsDto) {
+    return this.mailbox.notSpam(dto.folder, dto.uids);
+  }
+
+  @Post('messages/receipt')
+  @ApiOperation({ summary: 'Enviar ou ignorar a confirmação de leitura pedida pelo remetente' })
+  receipt(@Req() req: AuthRequest, @Body() dto: ReceiptDto) {
+    return this.mailbox.handleReceipt(this.userId(req), dto);
+  }
+
+  @Get('messages/source')
+  @ApiOperation({ summary: 'Baixar o original (.eml)' })
+  async source(@Query() query: MessageRefDto, @Res() res: Response) {
+    const file = await this.mailbox.messageSource(query.folder, query.uid);
+    this.sendFile(res, file, false);
+  }
+
   @Get('messages/attachment')
   async attachment(@Query() query: AttachmentQueryDto, @Res() res: Response) {
     const file = await this.mailbox.downloadAttachment(query.folder, query.uid, query.index);
-    this.sendFile(res, file, Boolean(query.preview));
+    const previewType = query.preview ? previewableType(file.contentType) : null;
+    this.sendFile(res, previewType ? { ...file, contentType: previewType } : file, Boolean(previewType));
   }
 
   @Get('drafts')
@@ -155,6 +223,18 @@ export class MailboxController {
   @Put('drafts/:id')
   updateDraft(@Param('id', ParseIntPipe) id: number, @Body() dto: SaveDraftDto) {
     return this.mailbox.saveDraft(dto, id);
+  }
+
+  @Post('drafts/:id/original')
+  @ApiOperation({ summary: 'Anexar a mensagem original ou os anexos dela ao rascunho' })
+  attachOriginal(@Param('id', ParseIntPipe) id: number, @Body() dto: AttachOriginalDto) {
+    return this.mailbox.attachOriginal(id, dto);
+  }
+
+  @Delete('drafts/:id/schedule')
+  @ApiOperation({ summary: 'Desfazer envio / cancelar agendamento' })
+  cancelSchedule(@Param('id', ParseIntPipe) id: number) {
+    return this.mailbox.cancelScheduled(id);
   }
 
   @Delete('drafts/:id')
@@ -213,15 +293,42 @@ export class MailboxController {
     file: { filename: string; contentType: string; content: Buffer },
     inline: boolean,
   ) {
-    const ascii = file.filename.replace(/[^\x20-\x7E]/g, '_') || 'anexo';
+    const ascii = file.filename.replace(/[^\x20-\x7E]/g, '_').replace(/["\\]/g, '_') || 'anexo';
     const type = inline ? 'inline' : 'attachment';
-    res.setHeader('Content-Type', file.contentType || 'application/octet-stream');
+    const contentType = inline
+      ? file.contentType
+      : safeDownloadType(file.contentType || 'application/octet-stream');
+    res.setHeader('Content-Type', contentType);
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('Content-Security-Policy', "default-src 'none'; img-src data:; sandbox");
     res.setHeader(
       'Content-Disposition',
       `${type}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(file.filename)}`,
     );
     res.send(file.content);
   }
+}
+
+const PREVIEWABLE = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'image/bmp',
+  'application/pdf',
+  'text/plain',
+]);
+
+/** Só abre na tela tipos que não executam código. HTML, SVG e XML viram download. */
+export function previewableType(contentType: string): string | null {
+  const type = (contentType || '').split(';')[0].trim().toLowerCase();
+  const normalized = type === 'image/jpg' ? 'image/jpeg' : type;
+  return PREVIEWABLE.has(normalized) ? normalized : null;
+}
+
+function safeDownloadType(contentType: string): string {
+  const type = contentType.split(';')[0].trim().toLowerCase();
+  if (/html|xml|svg|javascript|ecmascript/.test(type)) return 'application/octet-stream';
+  return /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/.test(type) ? type : 'application/octet-stream';
 }

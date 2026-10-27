@@ -10,6 +10,7 @@ import {
 import { errorFormatter } from './_common/helpers/errorFormatter.helper';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import { json } from 'express';
 import { initializeTransactionalContext, StorageDriver } from 'typeorm-transactional';
 import { CustomResponseInterceptor } from './_common/interceptors/response.interceptor';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
@@ -21,6 +22,8 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bodyParser: false,
   });
+  // Rascunhos de e-mail levam HTML citado e imagens coladas no texto.
+  app.use('/api/root/mailbox', json({ limit: '16mb' }));
   app.useBodyParser('json', { limit: '2mb' });
   app.useBodyParser('urlencoded', { limit: '2mb', extended: true });
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));

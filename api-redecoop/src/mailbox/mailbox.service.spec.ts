@@ -27,7 +27,13 @@ describe('MailboxService', () => {
     stored = null;
     audits = [];
     smtp.send.mockReset();
-    smtp.send.mockResolvedValue({ messageId: '<enviado@redecoop.rs>', raw: Buffer.from('raw') });
+    smtp.send.mockResolvedValue({
+      messageId: '<enviado@redecoop.rs>',
+      raw: Buffer.from('raw'),
+      sentCopy: Buffer.from('raw-com-bcc'),
+    });
+    smtp.verify.mockReset();
+    imap.test.mockReset();
 
     const accounts = {
       find: jest.fn(async () => (stored ? [stored] : [])),
@@ -127,8 +133,7 @@ describe('MailboxService', () => {
       includeSignature: true,
     });
 
-    expect(result.ok).toBe(true);
-    expect(result.messageId).toBe('<enviado@redecoop.rs>');
+    expect(result).toMatchObject({ ok: true, messageId: '<enviado@redecoop.rs>' });
     expect(smtp.send).toHaveBeenCalledTimes(1);
     const payload = smtp.send.mock.calls[0][1];
     expect(payload.html).not.toContain('<script');

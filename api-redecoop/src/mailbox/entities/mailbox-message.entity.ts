@@ -97,6 +97,21 @@ export class MailboxMessage {
   @Column({ default: false })
   bodyCached: boolean;
 
+  @Column({ length: 8, default: 'normal' })
+  priority: string;
+
+  @Column({ length: 1024, nullable: true })
+  listUnsubscribe: string;
+
+  @Column({ length: 320, nullable: true })
+  receiptTo: string;
+
+  @Column({ default: false })
+  receiptHandled: boolean;
+
+  @Column({ default: false })
+  headersCached: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 

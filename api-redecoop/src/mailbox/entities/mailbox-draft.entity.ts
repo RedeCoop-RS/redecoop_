@@ -47,6 +47,27 @@ export class MailboxDraft {
   @Column({ default: true })
   includeSignature: boolean;
 
+  @Column({ length: 64, nullable: true })
+  signatureId: string;
+
+  @Column({ length: 8, default: 'normal' })
+  priority: string;
+
+  @Column({ default: false })
+  requestReceipt: boolean;
+
+  @Column({ type: 'datetime', nullable: true })
+  scheduledAt: Date;
+
+  @Column({ type: 'int', nullable: true })
+  scheduledByUserId: number;
+
+  @Column({ type: 'datetime', nullable: true })
+  sendingAt: Date;
+
+  @Column({ length: 500, nullable: true })
+  scheduleError: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

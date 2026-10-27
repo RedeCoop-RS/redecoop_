@@ -1,11 +1,17 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { promises as fs } from 'fs';
 import { basename, join } from 'path';
 import { randomUUID } from 'crypto';
 import { AddressObject, simpleParser } from 'mailparser';
-import { In, Repository } from 'typeorm';
-import { MailboxAccount } from './entities/mailbox-account.entity';
+import { In, IsNull, LessThanOrEqual, Not, Repository } from 'typeorm';
+import { MailboxAccount, MailboxSignature } from './entities/mailbox-account.entity';
 import { MailboxFolder } from './entities/mailbox-folder.entity';
 import { AttachmentMeta, MailboxMessage } from './entities/mailbox-message.entity';
 import { MailboxDraft } from './entities/mailbox-draft.entity';
@@ -19,7 +25,9 @@ import { htmlToText, sanitizeMailboxHtml, withSignature } from './security/mailb
 import { classifyFolder, specialUseOrder } from './imap/folder-classifier';
 import { snippetFromText, threadKey } from './imap/thread';
 import { formatAddress, MailAddress, parseAddressList } from './imap/addresses';
-import { toAccountView } from './presenters/account.presenter';
+import { accountSignatures, toAccountView } from './presenters/account.presenter';
+import { headerFlags } from './imap/headers';
+import { extractInlineImages } from './security/inline-images';
 import { notifyMailboxAccountChanged } from './mailbox.hooks';
 import {
   assertAllowedAttachment,
@@ -31,8 +39,13 @@ import {
   syncMessageLimit,
 } from './mailbox.constants';
 import { MailboxCredentials, RemoteEnvelope, RemoteFolder } from './mailbox.types';
+import { MAX_SOURCE_BYTES, PreviewRequest } from './mailbox-imap.service';
 import {
+  AttachOriginalDto,
+  CreateFolderDto,
   FlaggedDto,
+  ReceiptDto,
+  RenameFolderDto,
   ListMessagesDto,
   MoveMessagesDto,
   ReadMessageDto,
@@ -92,6 +105,31 @@ export class MailboxService {
       throw new BadRequestException('Informe a senha da caixa de e-mail.');
     }
 
+    const connectionChanged =
+      !existing ||
+      Boolean(password) ||
+      existing.imapHost !== dto.imapHost.trim() ||
+      existing.imapPort !== dto.imapPort ||
+      existing.imapSecure !== dto.imapSecure ||
+      existing.smtpHost !== dto.smtpHost.trim() ||
+      existing.smtpPort !== dto.smtpPort ||
+      existing.smtpSecure !== dto.smtpSecure ||
+      existing.username !== dto.username.trim();
+    if (connectionChanged) {
+      const plain = password || this.decryptOrFail(passwordCipher);
+      await this.verifyCredentials({
+        email: dto.email.trim(),
+        imapHost: dto.imapHost.trim(),
+        imapPort: dto.imapPort,
+        imapSecure: dto.imapSecure,
+        smtpHost: dto.smtpHost.trim(),
+        smtpPort: dto.smtpPort,
+        smtpSecure: dto.smtpSecure,
+        username: dto.username.trim(),
+        password: plain,
+      });
+    }
+
     const account = existing ?? this.accounts.create();
     account.label = dto.label?.trim() || 'Caixa principal';
     account.email = dto.email.trim();
@@ -104,7 +142,18 @@ export class MailboxService {
     account.smtpSecure = dto.smtpSecure;
     account.username = dto.username.trim();
     account.passwordCipher = passwordCipher;
-    account.signatureHtml = dto.signatureHtml?.trim() || null;
+    const signatures =
+      dto.signatures === undefined && dto.signatureHtml === undefined && existing
+        ? accountSignatures(existing)
+        : this.normalizeSignatures(dto);
+    account.signatures = signatures;
+    const preferred = dto.defaultSignatureId ?? existing?.defaultSignatureId;
+    account.defaultSignatureId = signatures.some((item) => item.id === preferred)
+      ? preferred
+      : signatures[0]?.id || null;
+    account.signatureHtml =
+      signatures.find((item) => item.id === account.defaultSignatureId)?.html || null;
+    if (dto.undoSendSeconds !== undefined) account.undoSendSeconds = dto.undoSendSeconds;
     account.syncIntervalSeconds = dto.syncIntervalSeconds || defaultSyncIntervalSeconds();
     account.createdByUserId = account.createdByUserId || userId;
     const saved = await this.accounts.save(account);
@@ -132,6 +181,11 @@ export class MailboxService {
       MAILBOX_LIMITS.test.windowMs,
     );
     const creds = await this.credentialsFromInput(dto);
+    await this.verifyCredentials(creds);
+    return { ok: true, message: 'IMAP e SMTP conectaram com sucesso.' };
+  }
+
+  private async verifyCredentials(creds: MailboxCredentials) {
     const steps = [
       {
         name: 'IMAP',
@@ -156,7 +210,6 @@ export class MailboxService {
         );
       }
     }
-    return { ok: true, message: 'IMAP e SMTP conectaram com sucesso.' };
   }
 
   async listFolders() {
@@ -256,19 +309,72 @@ export class MailboxService {
 
     const page = Math.max(1, input.page || 1);
     const limit = Math.min(100, Math.max(1, input.limit || 30));
-    const qb = this.messages
-      .createQueryBuilder('m')
-      .where('m.folderId = :folderId', { folderId: folder.id });
-    if (input.unread) qb.andWhere('m.seen = :seen', { seen: false });
-    if (input.starred) qb.andWhere('m.flagged = :flagged', { flagged: true });
-    if (input.attachments) qb.andWhere('m.hasAttachments = :has', { has: true });
-    if (term) {
-      const q = `%${term.replace(/[\\%_]/g, '').slice(0, 200)}%`;
-      qb.andWhere(
-        '(m.subject LIKE :q OR m.fromAddress LIKE :q OR m.fromName LIKE :q OR m.snippet LIKE :q)',
-        { q },
-      );
+    const filtered = () => {
+      const qb = this.messages
+        .createQueryBuilder('m')
+        .where('m.folderId = :folderId', { folderId: folder.id });
+      if (input.unread) qb.andWhere('m.seen = :seen', { seen: false });
+      if (input.starred) qb.andWhere('m.flagged = :flagged', { flagged: true });
+      if (input.attachments) qb.andWhere('m.hasAttachments = :has', { has: true });
+      if (term) {
+        const q = `%${term.replace(/[\\%_]/g, '').slice(0, 200)}%`;
+        qb.andWhere(
+          '(m.subject LIKE :q OR m.fromAddress LIKE :q OR m.fromName LIKE :q OR m.snippet LIKE :q)',
+          { q },
+        );
+      }
+      return qb;
+    };
+
+    const counts = await this.folderCounts(folder.id);
+    const folderInfo = {
+      path: folder.path,
+      name: folder.name,
+      specialUse: folder.specialUse,
+      unreadCount: folder.unreadCount,
+    };
+
+    if (input.threads) {
+      const groups = await filtered()
+        .select('m.threadKey', 'threadKey')
+        .addSelect('MAX(m.messageDate)', 'lastDate')
+        .addSelect('COUNT(*)', 'count')
+        .addSelect('SUM(CASE WHEN m.seen = 0 THEN 1 ELSE 0 END)', 'unread')
+        .groupBy('m.threadKey')
+        .orderBy('lastDate', input.sort === 'date_asc' ? 'ASC' : 'DESC')
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .getRawMany<{ threadKey: string; lastDate: Date; count: string; unread: string }>();
+      const totalRow = await filtered()
+        .select('COUNT(DISTINCT m.threadKey)', 'total')
+        .getRawOne<{ total: string }>();
+      const keys = groups.map((group) => group.threadKey);
+      const rows = keys.length
+        ? await filtered()
+            .andWhere('m.threadKey IN (:...keys)', { keys })
+            .orderBy('m.messageDate', 'DESC')
+            .addOrderBy('m.uid', 'DESC')
+            .getMany()
+        : [];
+      const latest = new Map<string, MailboxMessage>();
+      for (const row of rows) if (!latest.has(row.threadKey)) latest.set(row.threadKey, row);
+      return {
+        data: groups
+          .filter((group) => latest.has(group.threadKey))
+          .map((group) => ({
+            ...this.toListItem(latest.get(group.threadKey)),
+            threadCount: Number(group.count) || 1,
+            threadUnread: Number(group.unread) || 0,
+          })),
+        total: Number(totalRow?.total) || 0,
+        page,
+        limit,
+        counts,
+        folder: folderInfo,
+      };
     }
+
+    const qb = filtered();
     if (input.sort === 'date_asc') qb.orderBy('m.messageDate', 'ASC');
     else if (input.sort === 'subject') qb.orderBy('m.subject', 'ASC');
     else if (input.sort === 'from') qb.orderBy('m.fromName', 'ASC');
@@ -281,12 +387,25 @@ export class MailboxService {
       total,
       page,
       limit,
-      folder: {
-        path: folder.path,
-        name: folder.name,
-        specialUse: folder.specialUse,
-        unreadCount: folder.unreadCount,
-      },
+      counts,
+      folder: folderInfo,
+    };
+  }
+
+  private async folderCounts(folderId: number) {
+    const row = await this.messages
+      .createQueryBuilder('m')
+      .select('COUNT(*)', 'total')
+      .addSelect('SUM(CASE WHEN m.seen = 0 THEN 1 ELSE 0 END)', 'unread')
+      .addSelect('SUM(CASE WHEN m.flagged = 1 THEN 1 ELSE 0 END)', 'starred')
+      .addSelect('SUM(CASE WHEN m.hasAttachments = 1 THEN 1 ELSE 0 END)', 'attachments')
+      .where('m.folderId = :folderId', { folderId })
+      .getRawOne<{ total: string; unread: string; starred: string; attachments: string }>();
+    return {
+      total: Number(row?.total) || 0,
+      unread: Number(row?.unread) || 0,
+      starred: Number(row?.starred) || 0,
+      attachments: Number(row?.attachments) || 0,
     };
   }
 
@@ -348,6 +467,15 @@ export class MailboxService {
       remoteImagesBlocked: !input.loadRemoteImages && sanitized.remoteImageCount > 0,
       attachments: row.attachmentsMeta || [],
       thread: await this.threadSummaries(account.id, row.threadKey),
+      priority: row.priority || 'normal',
+      listUnsubscribe: row.listUnsubscribe || null,
+      receiptRequested: Boolean(
+        row.receiptTo &&
+          !row.receiptHandled &&
+          folder.specialUse !== 'sent' &&
+          row.receiptTo !== account.email.toLowerCase(),
+      ),
+      receiptTo: row.receiptTo || null,
     };
   }
 
@@ -485,6 +613,7 @@ export class MailboxService {
       ? await this.drafts.findOne({ where: { id, accountId: account.id } })
       : this.drafts.create({ accountId: account.id });
     if (!draft) throw new NotFoundException('Rascunho não encontrado.');
+    if (draft.sendingAt) throw new ConflictException('Este rascunho está sendo enviado.');
     if (!draft.accountId) draft.accountId = account.id;
     draft.toText = dto.to ?? draft.toText ?? '';
     draft.ccText = dto.cc ?? draft.ccText ?? '';
@@ -497,6 +626,9 @@ export class MailboxService {
     draft.inReplyTo = dto.inReplyTo ?? draft.inReplyTo;
     draft.referencesHeader = dto.references ?? draft.referencesHeader;
     if (dto.includeSignature !== undefined) draft.includeSignature = dto.includeSignature;
+    if (dto.signatureId !== undefined) draft.signatureId = dto.signatureId || null;
+    if (dto.priority) draft.priority = dto.priority;
+    if (dto.requestReceipt !== undefined) draft.requestReceipt = dto.requestReceipt;
     const saved = await this.drafts.save(draft);
     const attachments = await this.draftFiles.find({ where: { draftId: saved.id } });
     return this.toDraft(saved, attachments);
@@ -587,42 +719,159 @@ export class MailboxService {
       MAILBOX_LIMITS.send.limit,
       MAILBOX_LIMITS.send.windowMs,
     );
-    const { account, creds } = await this.requireAccount();
-    const draft = dto.draftId
-      ? await this.drafts.findOne({ where: { id: dto.draftId, accountId: account.id } })
-      : null;
-    if (dto.draftId && !draft) throw new NotFoundException('Rascunho não encontrado.');
+    if (dto.sendAt || (dto.delaySeconds ?? 0) > 0) return this.schedule(userId, dto);
+    return this.deliver(userId, dto);
+  }
 
-    const to = parseAddressList(dto.to ?? draft?.toText);
-    const cc = parseAddressList(dto.cc ?? draft?.ccText);
-    const bcc = parseAddressList(dto.bcc ?? draft?.bccText);
+  async cancelScheduled(id: number) {
+    const { account } = await this.requireAccount();
+    const draft = await this.drafts.findOne({ where: { id, accountId: account.id } });
+    if (!draft) throw new NotFoundException('Rascunho não encontrado.');
+    if (draft.sendingAt) {
+      throw new ConflictException('A mensagem já está sendo enviada e não pode mais ser desfeita.');
+    }
+    draft.scheduledAt = null;
+    draft.scheduledByUserId = null;
+    const saved = await this.drafts.save(draft);
+    const files = await this.draftFiles.find({ where: { draftId: saved.id } });
+    return this.toDraft(saved, files);
+  }
+
+  /** Chamado pelo agendador: envia rascunhos cujo horário chegou. */
+  async runDueScheduled() {
+    const staleBefore = new Date(Date.now() - 15 * 60 * 1000);
+    const stale = await this.drafts.find({
+      where: { sendingAt: LessThanOrEqual(staleBefore) },
+      take: 20,
+    });
+    for (const draft of stale) {
+      await this.drafts.update(
+        { id: draft.id },
+        {
+          sendingAt: null,
+          scheduledAt: null,
+          scheduleError: 'O envio foi interrompido. Confira a pasta Enviados antes de reenviar.',
+        },
+      );
+    }
+
+    const due = await this.drafts.find({
+      where: { scheduledAt: LessThanOrEqual(new Date()), sendingAt: IsNull() },
+      order: { scheduledAt: 'ASC' },
+      take: 5,
+    });
+    let sent = 0;
+    for (const draft of due) {
+      const claim = await this.drafts.update(
+        { id: draft.id, sendingAt: IsNull(), scheduledAt: Not(IsNull()) },
+        { sendingAt: new Date() },
+      );
+      if (!claim.affected) continue;
+      try {
+        await this.deliver(draft.scheduledByUserId, { draftId: draft.id });
+        sent += 1;
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message.slice(0, 480) : 'Falha no envio agendado.';
+        await this.drafts.update(
+          { id: draft.id },
+          { sendingAt: null, scheduledAt: null, scheduleError: message },
+        );
+        this.logger.warn(`Envio agendado falhou (rascunho ${draft.id}): ${message}`);
+      }
+    }
+    return sent;
+  }
+
+  private async schedule(userId: number, dto: SendMailDto) {
+    const when = dto.sendAt
+      ? new Date(dto.sendAt)
+      : new Date(Date.now() + (dto.delaySeconds ?? 0) * 1000);
+    if (Number.isNaN(when.getTime())) throw new BadRequestException('Data de envio inválida.');
+    if (dto.sendAt && when.getTime() < Date.now() + 30_000) {
+      throw new BadRequestException('Escolha um horário pelo menos 1 minuto no futuro.');
+    }
+    if (when.getTime() > Date.now() + 366 * 24 * 60 * 60 * 1000) {
+      throw new BadRequestException('O agendamento pode ser de no máximo um ano.');
+    }
+    const saved = await this.saveDraft(dto, dto.draftId);
+    const draft = await this.drafts.findOne({ where: { id: saved.id } });
+    this.recipients(draft.toText, draft.ccText, draft.bccText);
+    draft.scheduledAt = when;
+    draft.scheduledByUserId = userId;
+    draft.scheduleError = null;
+    await this.drafts.save(draft);
+    return {
+      ok: true,
+      scheduled: true,
+      undoable: !dto.sendAt,
+      draftId: draft.id,
+      sendAt: when.toISOString(),
+    };
+  }
+
+  private recipients(toText?: string, ccText?: string, bccText?: string) {
+    const to = parseAddressList(toText);
+    const cc = parseAddressList(ccText);
+    const bcc = parseAddressList(bccText);
     if (!to.length && !cc.length && !bcc.length) {
       throw new BadRequestException('Informe ao menos um destinatário.');
     }
     if (to.length + cc.length + bcc.length > 50) {
       throw new BadRequestException('No máximo 50 destinatários por mensagem.');
     }
+    return { to, cc, bcc };
+  }
+
+  private async deliver(userId: number | null, dto: SendMailDto) {
+    const { account, creds } = await this.requireAccount();
+    const draft = dto.draftId
+      ? await this.drafts.findOne({ where: { id: dto.draftId, accountId: account.id } })
+      : null;
+    if (dto.draftId && !draft) throw new NotFoundException('Rascunho não encontrado.');
+
+    const { to, cc, bcc } = this.recipients(
+      dto.to ?? draft?.toText,
+      dto.cc ?? draft?.ccText,
+      dto.bcc ?? draft?.bccText,
+    );
 
     const includeSignature = dto.includeSignature ?? draft?.includeSignature ?? true;
-    const html = sanitizeMailboxHtml(
-      withSignature(dto.html ?? draft?.html ?? '', account.signatureHtml, includeSignature),
+    const signatureId = dto.signatureId ?? draft?.signatureId ?? account.defaultSignatureId;
+    const signatures = accountSignatures(account);
+    const signature =
+      signatures.find((item) => item.id === signatureId) ||
+      (signatureId ? undefined : signatures[0]);
+    const domain = (account.email.split('@')[1] || 'redecoop.local').replace(/[^a-z0-9.-]/gi, '');
+    let html = sanitizeMailboxHtml(
+      withSignature(dto.html ?? draft?.html ?? '', signature?.html, includeSignature),
       { allowRemoteImages: true },
     ).html;
+    let inline: ReturnType<typeof extractInlineImages>;
+    try {
+      inline = extractInlineImages(html, domain, maxDraftBytes());
+    } catch {
+      throw new BadRequestException('As imagens coladas no texto passaram do limite de tamanho.');
+    }
+    html = inline.html;
     const subject = (dto.subject ?? draft?.subject ?? '').trim() || '(sem assunto)';
-    const domain = (account.email.split('@')[1] || 'redecoop.local').replace(/[^a-z0-9.-]/gi, '');
     const messageId = `<${randomUUID()}@${domain}>`;
     const files = draft ? await this.draftFiles.find({ where: { draftId: draft.id } }) : [];
-    const attachments = [];
+    const attachments = [...inline.attachments];
     for (const file of files) {
       attachments.push({
         filename: file.filename,
         contentType: file.contentType,
         content: await fs.readFile(this.storedPath(file.storageName)),
+        cid: file.contentId || undefined,
       });
     }
+    const priority = dto.priority ?? (draft?.priority as SendMailDto['priority']) ?? 'normal';
+    const requestReceipt = dto.requestReceipt ?? draft?.requestReceipt ?? false;
+    const mode = dto.mode || draft?.mode || '';
 
     let sentId = messageId;
-    let raw: Buffer;
+    let sentCopy: Buffer;
     try {
       const result = await this.smtp.send(creds, {
         from: formatAddress({ name: account.displayName || undefined, address: account.email }),
@@ -636,9 +885,11 @@ export class MailboxService {
         inReplyTo: dto.inReplyTo || draft?.inReplyTo || undefined,
         references: dto.references || draft?.referencesHeader || undefined,
         attachments,
+        priority,
+        receiptTo: requestReceipt ? account.email : undefined,
       });
       sentId = result.messageId;
-      raw = result.raw;
+      sentCopy = result.sentCopy;
     } catch (error) {
       throw this.fail(error, 'Não foi possível enviar o e-mail.', creds.password);
     }
@@ -660,7 +911,7 @@ export class MailboxService {
     });
     if (sentFolder) {
       try {
-        await this.imap.append(creds, sentFolder.path, raw, ['\\Seen']);
+        await this.imap.append(creds, sentFolder.path, sentCopy, ['\\Seen']);
       } catch (error) {
         this.logger.warn(
           `E-mail enviado, mas não foi copiado para Enviados: ${this.describe(error)}`,
@@ -671,13 +922,16 @@ export class MailboxService {
 
     const sourceFolder = dto.sourceFolder || draft?.sourceFolder;
     const sourceUid = dto.sourceUid || draft?.sourceUid;
-    if (sourceFolder && sourceUid && (dto.mode || draft?.mode || '').startsWith('reply')) {
+    const flag = mode.startsWith('reply') ? '\\Answered' : mode === 'forward' ? '$Forwarded' : null;
+    if (sourceFolder && sourceUid && flag) {
       try {
-        await this.imap.updateFlags(creds, sourceFolder, [sourceUid], { add: ['\\Answered'] });
-        const folder = await this.folderByPath(account.id, sourceFolder);
-        await this.messages.update({ folderId: folder.id, uid: sourceUid }, { answered: true });
+        await this.imap.updateFlags(creds, sourceFolder, [sourceUid], { add: [flag] });
+        if (flag === '\\Answered') {
+          const folder = await this.folderByPath(account.id, sourceFolder);
+          await this.messages.update({ folderId: folder.id, uid: sourceUid }, { answered: true });
+        }
       } catch {
-        // O envio já aconteceu; a flag de respondido é complementar.
+        // O envio já aconteceu; a marcação na mensagem original é complementar.
       }
     }
 
@@ -688,6 +942,356 @@ export class MailboxService {
     }
 
     return { ok: true, messageId: sentId, warning };
+  }
+
+  async markAllSeen(folderPath: string) {
+    const { account, creds } = await this.requireAccount();
+    const folder = await this.folderByPath(account.id, folderPath);
+    try {
+      await this.imap.markAllSeen(creds, folder.path);
+      await this.messages.update({ folderId: folder.id }, { seen: true });
+      folder.unreadCount = 0;
+      await this.folders.save(folder);
+      await this.refreshUnseen(creds, folder);
+    } catch (error) {
+      throw this.fail(error, 'Não foi possível marcar tudo como lido.', creds.password);
+    }
+    return { ok: true, unread: await this.inboxUnread(account.id) };
+  }
+
+  async emptyFolder(folderPath: string) {
+    const { account, creds } = await this.requireAccount();
+    const folder = await this.folderByPath(account.id, folderPath);
+    if (folder.specialUse !== 'trash' && folder.specialUse !== 'spam') {
+      throw new BadRequestException('Só é possível esvaziar a lixeira ou a pasta de spam.');
+    }
+    try {
+      const removed = await this.imap.deleteAll(creds, folder.path);
+      await this.messages.delete({ folderId: folder.id });
+      folder.unreadCount = 0;
+      folder.totalCount = 0;
+      await this.folders.save(folder);
+      return { ok: true, removed };
+    } catch (error) {
+      throw this.fail(error, 'Não foi possível esvaziar a pasta.', creds.password);
+    }
+  }
+
+  async notSpam(folderPath: string, uids: number[]) {
+    const { account } = await this.requireAccount();
+    const inbox = await this.folders.findOne({
+      where: { accountId: account.id, specialUse: 'inbox' },
+    });
+    if (!inbox) throw new BadRequestException('Não encontrei a caixa de entrada.');
+    return this.move({ folder: folderPath, uids, targetFolder: inbox.path });
+  }
+
+  async createFolder(dto: CreateFolderDto) {
+    const { account, creds } = await this.requireAccount();
+    const remote = await this.imap.listFolders(creds).catch((error) => {
+      throw this.fail(error, 'Não foi possível ler as pastas.', creds.password);
+    });
+    const name = dto.name.trim();
+    let path = name;
+    if (dto.parent) {
+      const parent = remote.find((item) => item.path === this.cleanPath(dto.parent));
+      if (!parent) throw new NotFoundException('Pasta mãe não encontrada.');
+      if (name.includes(parent.delimiter || '/')) {
+        throw new BadRequestException('O nome da pasta não pode conter o separador de pastas.');
+      }
+      path = `${parent.path}${parent.delimiter || '/'}${name}`;
+    } else {
+      const delimiter = remote.find((item) => item.delimiter)?.delimiter || '/';
+      if (name.includes(delimiter)) {
+        throw new BadRequestException('O nome da pasta não pode conter o separador de pastas.');
+      }
+    }
+    if (remote.some((item) => item.path.toLowerCase() === path.toLowerCase())) {
+      throw new BadRequestException('Já existe uma pasta com esse nome.');
+    }
+    try {
+      await this.imap.createFolder(creds, path);
+    } catch (error) {
+      throw this.fail(error, 'Não foi possível criar a pasta.', creds.password);
+    }
+    await this.refreshFolderList(account.id, creds);
+    return { ok: true, path };
+  }
+
+  async renameFolder(dto: RenameFolderDto) {
+    const { account, creds } = await this.requireAccount();
+    const folder = await this.folderByPath(account.id, dto.path);
+    this.assertCustomFolder(folder);
+    const remote = await this.imap.listFolders(creds).catch((error) => {
+      throw this.fail(error, 'Não foi possível ler as pastas.', creds.password);
+    });
+    const current = remote.find((item) => item.path === folder.path);
+    const delimiter = current?.delimiter || '/';
+    const name = dto.name.trim();
+    if (name.includes(delimiter)) {
+      throw new BadRequestException('O nome da pasta não pode conter o separador de pastas.');
+    }
+    const parts = folder.path.split(delimiter);
+    parts[parts.length - 1] = name;
+    const nextPath = parts.join(delimiter);
+    if (nextPath === folder.path) return { ok: true, path: folder.path };
+    if (remote.some((item) => item.path.toLowerCase() === nextPath.toLowerCase())) {
+      throw new BadRequestException('Já existe uma pasta com esse nome.');
+    }
+    try {
+      await this.imap.renameFolder(creds, folder.path, nextPath);
+    } catch (error) {
+      throw this.fail(error, 'Não foi possível renomear a pasta.', creds.password);
+    }
+    await this.messages.delete({ folderId: folder.id });
+    await this.refreshFolderList(account.id, creds);
+    return { ok: true, path: nextPath };
+  }
+
+  async deleteFolder(path: string) {
+    const { account, creds } = await this.requireAccount();
+    const folder = await this.folderByPath(account.id, path);
+    this.assertCustomFolder(folder);
+    const remote = await this.imap.listFolders(creds).catch((error) => {
+      throw this.fail(error, 'Não foi possível ler as pastas.', creds.password);
+    });
+    const delimiter = remote.find((item) => item.path === folder.path)?.delimiter || '/';
+    if (remote.some((item) => item.path.startsWith(`${folder.path}${delimiter}`))) {
+      throw new BadRequestException('Exclua ou mova as subpastas antes de excluir esta pasta.');
+    }
+    try {
+      await this.imap.deleteFolder(creds, folder.path);
+    } catch (error) {
+      throw this.fail(error, 'Não foi possível excluir a pasta.', creds.password);
+    }
+    await this.messages.delete({ folderId: folder.id });
+    await this.refreshFolderList(account.id, creds);
+    return { ok: true };
+  }
+
+  async messageSource(folderPath: string, uid: number) {
+    const { account, creds } = await this.requireAccount();
+    const folder = await this.folderByPath(account.id, folderPath);
+    try {
+      const content = await this.imap.fetchSource(creds, folder.path, uid);
+      return {
+        filename: safeFilename(`mensagem-${uid}.eml`),
+        contentType: 'message/rfc822',
+        content,
+      };
+    } catch (error) {
+      throw this.fail(error, 'Não foi possível abrir o original da mensagem.', creds.password);
+    }
+  }
+
+  async quota() {
+    const { creds } = await this.requireAccount();
+    try {
+      const quota = await this.imap.quota(creds);
+      return { supported: Boolean(quota), ...(quota || { usage: 0, limit: 0 }) };
+    } catch (error) {
+      this.logger.warn(`Cota indisponível: ${this.describe(error)}`);
+      return { supported: false, usage: 0, limit: 0 };
+    }
+  }
+
+  async contacts(query?: string) {
+    const account = await this.findAccount();
+    if (!account) return [];
+    const term = this.fold(query || '').trim();
+    const own = new Set([account.email.toLowerCase(), account.username.toLowerCase()]);
+    const rows = await this.messages.find({
+      where: { accountId: account.id },
+      select: ['fromName', 'fromAddress', 'toAddresses', 'ccAddresses', 'messageDate'],
+      order: { messageDate: 'DESC' },
+      take: 3000,
+    });
+    const audits = await this.audits.find({
+      select: ['recipients'],
+      order: { createdAt: 'DESC' },
+      take: 500,
+    });
+    const scores = new Map<string, { name?: string; address: string; score: number }>();
+    const add = (address?: string | null, name?: string | null, weight = 1) => {
+      const key = (address || '').trim().toLowerCase();
+      if (!key || !key.includes('@') || own.has(key)) return;
+      const current = scores.get(key) || { address: key, score: 0 };
+      current.score += weight;
+      if (name && !current.name && name.toLowerCase() !== key) current.name = name;
+      scores.set(key, current);
+    };
+    for (const row of rows) {
+      add(row.fromAddress, row.fromName, 1);
+      for (const item of row.toAddresses || []) add(item.address, item.name, 2);
+      for (const item of row.ccAddresses || []) add(item.address, item.name, 1);
+    }
+    for (const audit of audits) {
+      for (const address of (audit.recipients || '').split(',')) add(address, undefined, 3);
+    }
+    return [...scores.values()]
+      .filter(
+        (item) =>
+          !term || this.fold(item.address).includes(term) || this.fold(item.name || '').includes(term),
+      )
+      .sort((a, b) => b.score - a.score || a.address.localeCompare(b.address))
+      .slice(0, 8)
+      .map((item) => ({ name: item.name || null, address: item.address }));
+  }
+
+  /** Encaminhar com os anexos originais ou com a mensagem inteira como .eml. */
+  async attachOriginal(draftId: number, dto: AttachOriginalDto) {
+    const { account, creds } = await this.requireAccount();
+    const draft = await this.drafts.findOne({ where: { id: draftId, accountId: account.id } });
+    if (!draft) throw new NotFoundException('Rascunho não encontrado.');
+    const folder = await this.folderByPath(account.id, dto.folder);
+    let source: Buffer;
+    try {
+      source = await this.imap.fetchSource(creds, folder.path, dto.uid);
+    } catch (error) {
+      throw this.fail(error, 'Não foi possível ler a mensagem original.', creds.password);
+    }
+    const files: Array<{ filename: string; contentType: string; content: Buffer }> = [];
+    if (dto.asAttachment) {
+      const parsed = await simpleParser(source);
+      const base = (parsed.subject || 'mensagem').slice(0, 80);
+      files.push({
+        filename: safeFilename(`${base}.eml`),
+        contentType: 'message/rfc822',
+        content: source,
+      });
+    } else {
+      const parsed = await simpleParser(source);
+      for (const [index, file] of (parsed.attachments || []).entries()) {
+        if (file.related) continue;
+        files.push({
+          filename: safeFilename(file.filename || `anexo-${index + 1}`),
+          contentType: file.contentType || 'application/octet-stream',
+          content: file.content,
+        });
+      }
+    }
+    const current = await this.draftFiles.find({ where: { draftId } });
+    let total = current.reduce((sum, item) => sum + item.size, 0);
+    await fs.mkdir(mailboxUploadDir(), { recursive: true });
+    for (const file of files) {
+      total += file.content.length;
+      if (total > maxDraftBytes()) {
+        throw new BadRequestException('A soma dos anexos deste rascunho passou do limite.');
+      }
+      const storageName = `${randomUUID()}.bin`;
+      await fs.writeFile(this.storedPath(storageName), file.content, { mode: 0o600 });
+      await this.draftFiles.save(
+        this.draftFiles.create({
+          draftId,
+          filename: file.filename,
+          contentType: file.contentType,
+          size: file.content.length,
+          storageName,
+        }),
+      );
+    }
+    const attachments = await this.draftFiles.find({ where: { draftId } });
+    return this.toDraft(draft, attachments);
+  }
+
+  async handleReceipt(userId: number, dto: ReceiptDto) {
+    const { account, creds } = await this.requireAccount();
+    const folder = await this.folderByPath(account.id, dto.folder);
+    const row = await this.messages.findOne({ where: { folderId: folder.id, uid: dto.uid } });
+    if (!row) throw new NotFoundException('Mensagem não encontrada nesta pasta.');
+    if (!row.receiptTo || row.receiptHandled) return { ok: true, sent: false };
+    if (dto.send) {
+      this.rate.consume(
+        `mailbox:send:${userId}`,
+        MAILBOX_LIMITS.send.limit,
+        MAILBOX_LIMITS.send.windowMs,
+      );
+      const domain = (account.email.split('@')[1] || 'redecoop.local').replace(/[^a-z0-9.-]/gi, '');
+      const when = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+      const text = `Sua mensagem "${row.subject || '(sem assunto)'}" foi lida por ${account.email} em ${when}.`;
+      try {
+        await this.smtp.send(creds, {
+          from: formatAddress({ name: account.displayName || undefined, address: account.email }),
+          to: [row.receiptTo],
+          subject: `Lida: ${row.subject || '(sem assunto)'}`.slice(0, 998),
+          html: `<p>${text.replace(/[<>&]/g, '')}</p>`,
+          text,
+          messageId: `<${randomUUID()}@${domain}>`,
+          inReplyTo: row.messageId || undefined,
+          references: row.messageId || undefined,
+        });
+      } catch (error) {
+        throw this.fail(error, 'Não foi possível enviar a confirmação de leitura.', creds.password);
+      }
+      await this.audits.save(
+        this.audits.create({
+          userId,
+          accountId: account.id,
+          action: 'RECEIPT',
+          recipients: row.receiptTo,
+          subject: `Lida: ${row.subject || ''}`.slice(0, 998),
+          messageId: row.messageId,
+        }),
+      );
+    }
+    row.receiptHandled = true;
+    await this.messages.save(row);
+    await this.imap
+      .updateFlags(creds, folder.path, [row.uid], { add: ['$MDNSent'] })
+      .catch(() => undefined);
+    return { ok: true, sent: dto.send };
+  }
+
+  private decryptOrFail(cipher: string) {
+    try {
+      return this.crypto.decrypt(cipher);
+    } catch (error) {
+      throw this.cryptoError(error);
+    }
+  }
+
+  private assertCustomFolder(folder: MailboxFolder) {
+    if (folder.specialUse !== 'other' || folder.path.toUpperCase() === 'INBOX') {
+      throw new BadRequestException('Pastas do sistema não podem ser renomeadas nem excluídas.');
+    }
+  }
+
+  private async refreshFolderList(accountId: number, creds: MailboxCredentials) {
+    try {
+      await this.upsertFolders(accountId, await this.imap.listFolders(creds));
+    } catch (error) {
+      this.logger.warn(`Não foi possível atualizar as pastas: ${this.describe(error)}`);
+    }
+  }
+
+  private fold(value: string) {
+    return value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+  }
+
+  private normalizeSignatures(dto: UpsertMailboxAccountDto): MailboxSignature[] {
+    if (Array.isArray(dto.signatures)) {
+      const seen = new Set<string>();
+      return dto.signatures
+        .filter((item) => item.id && !seen.has(item.id) && seen.add(item.id))
+        .map((item) => ({
+          id: item.id,
+          name: item.name.trim().slice(0, 80) || 'Assinatura',
+          html: sanitizeMailboxHtml(item.html, { allowRemoteImages: true }).html,
+        }));
+    }
+    const legacy = dto.signatureHtml?.trim();
+    return legacy
+      ? [
+          {
+            id: 'principal',
+            name: 'Principal',
+            html: sanitizeMailboxHtml(legacy, { allowRemoteImages: true }).html,
+          },
+        ]
+      : [];
   }
 
   async listAudit(page = 1, limit = 20) {
@@ -770,8 +1374,39 @@ export class MailboxService {
     await this.folders.save(folder);
     await this.upsertEnvelopes(accountId, folder, fetched.messages);
     await this.dropMissingInWindow(folder.id, fetched.messages);
+    await this.fillPreviews(creds, folder, fetched.messages);
     await this.refreshUnseen(creds, folder);
     return fetched.messages.length;
+  }
+
+  private async fillPreviews(
+    creds: MailboxCredentials,
+    folder: MailboxFolder,
+    envelopes: RemoteEnvelope[],
+  ) {
+    const candidates = envelopes.filter((item) => item.previewPart);
+    if (!candidates.length) return;
+    const rows = await this.messages.find({
+      where: { folderId: folder.id, uid: In(candidates.map((item) => item.uid)) },
+      select: ['id', 'uid', 'snippet', 'bodyCached'],
+    });
+    const missing = new Set(
+      rows.filter((row) => !row.snippet && !row.bodyCached).map((row) => row.uid),
+    );
+    const requests: PreviewRequest[] = candidates
+      .filter((item) => missing.has(item.uid))
+      .slice(-200)
+      .map((item) => ({ uid: item.uid, ...item.previewPart }));
+    if (!requests.length) return;
+    try {
+      const previews = await this.imap.fetchPreviews(creds, folder.path, requests);
+      for (const row of rows) {
+        const snippet = previews.get(row.uid);
+        if (snippet) await this.messages.update({ id: row.id }, { snippet });
+      }
+    } catch (error) {
+      this.logger.warn(`Prévias não carregadas: ${this.describe(error)}`);
+    }
   }
 
   private async upsertFolders(accountId: number, remote: RemoteFolder[]) {
@@ -833,6 +1468,12 @@ export class MailboxService {
       row.answered = envelope.answered;
       row.hasAttachments = envelope.hasAttachments;
       row.size = envelope.size || 0;
+      if (envelope.headersCached && !row.bodyCached) {
+        row.priority = envelope.priority || 'normal';
+        row.listUnsubscribe = envelope.listUnsubscribe || null;
+        row.receiptTo = envelope.receiptTo || null;
+        row.headersCached = true;
+      }
       const parent = envelope.inReplyTo
         ? threadByMessageId.get(this.normalizeId(envelope.inReplyTo))
         : undefined;
@@ -895,6 +1536,13 @@ export class MailboxService {
       related: Boolean(file.related),
     })) as AttachmentMeta[];
     row.hasAttachments = row.attachmentsMeta.some((file) => !file.related);
+    const flags = headerFlags(
+      (parsed.headerLines || []).map((header) => header.line).join('\r\n'),
+    );
+    row.priority = flags.priority;
+    row.listUnsubscribe = flags.listUnsubscribe || null;
+    row.receiptTo = flags.receiptTo || null;
+    row.headersCached = true;
     row.bodyCached = true;
   }
 
@@ -1020,6 +1668,7 @@ export class MailboxService {
       hasAttachments: row.hasAttachments,
       threadKey: row.threadKey,
       size: row.size,
+      priority: row.priority || 'normal',
     };
   }
 
@@ -1037,12 +1686,19 @@ export class MailboxService {
       inReplyTo: draft.inReplyTo,
       references: draft.referencesHeader,
       includeSignature: draft.includeSignature,
+      signatureId: draft.signatureId || null,
+      priority: draft.priority || 'normal',
+      requestReceipt: Boolean(draft.requestReceipt),
+      scheduledAt: draft.scheduledAt || null,
+      sending: Boolean(draft.sendingAt),
+      scheduleError: draft.scheduleError || null,
       updatedAt: draft.updatedAt,
       attachments: attachments.map((file) => ({
         id: file.id,
         filename: file.filename,
         contentType: file.contentType,
         size: file.size,
+        contentId: file.contentId || null,
       })),
     };
   }
@@ -1161,6 +1817,28 @@ export class MailboxService {
     const safe = password ? raw.split(password).join('***') : raw;
     this.logger.warn(safe.slice(0, 300));
     const lower = safe.toLowerCase();
+    const response = String(
+      (error as { responseText?: string; response?: string })?.responseText ||
+        (error as { response?: string })?.response ||
+        '',
+    ).toLowerCase();
+    if (raw === 'MESSAGE_TOO_LARGE') {
+      return new BadRequestException(
+        `A mensagem é grande demais para abrir por aqui (limite de ${Math.round(MAX_SOURCE_BYTES / 1024 / 1024)} MB).`,
+      );
+    }
+    if (response.includes('alreadyexists') || lower.includes('alreadyexists')) {
+      return new BadRequestException('Já existe uma pasta com esse nome.');
+    }
+    if (response.includes('overquota') || lower.includes('quota exceeded')) {
+      return new BadRequestException('A caixa de e-mail está sem espaço (cota cheia).');
+    }
+    if (/\b552\b/.test(lower) || lower.includes('message size exceeds')) {
+      return new BadRequestException('A mensagem passou do tamanho aceito pelo servidor de envio.');
+    }
+    if (/\b55[03]\b/.test(lower) && lower.includes('recipient')) {
+      return new BadRequestException('O servidor de envio recusou um dos destinatários.');
+    }
     if (
       lower.includes('auth') ||
       lower.includes('invalid credentials') ||
@@ -1189,9 +1867,16 @@ export class MailboxService {
         'O certificado TLS foi rejeitado. Confira o host ou a variável MAILBOX_TLS_REJECT_UNAUTHORIZED.',
       );
     }
-    if (raw === 'MESSAGE_TOO_LARGE') {
+    if (
+      lower.includes('econnreset') ||
+      lower.includes('socket closed') ||
+      lower.includes('connection closed') ||
+      lower.includes('connection not available') ||
+      lower.includes('unexpected close') ||
+      lower.includes('epipe')
+    ) {
       return new BadRequestException(
-        'A mensagem é grande demais para abrir por aqui (limite de 20 MB).',
+        'A conexão com o servidor de e-mail caiu. Tente novamente em instantes.',
       );
     }
     if (raw === 'MESSAGE_NOT_FOUND')

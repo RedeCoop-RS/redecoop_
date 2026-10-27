@@ -8,6 +8,8 @@ import { MailboxService } from './mailbox.service';
 export class MailboxSyncService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MailboxSyncService.name);
   private timer: NodeJS.Timeout | null = null;
+  private scheduler: NodeJS.Timeout | null = null;
+  private dispatching = false;
   private debounce: NodeJS.Timeout | null = null;
   private idleClient: ImapFlow | null = null;
   private stopped = false;
@@ -23,6 +25,7 @@ export class MailboxSyncService implements OnModuleInit, OnModuleDestroy {
   onModuleInit() {
     this.unsubscribe = onMailboxAccountChanged(() => this.restartIdle());
     this.timer = setInterval(() => void this.mailbox.syncQuiet(false), 15000);
+    this.scheduler = setInterval(() => void this.dispatchScheduled(), 2000);
     void this.mailbox.syncQuiet(false);
     void this.idleLoop();
   }
@@ -31,10 +34,25 @@ export class MailboxSyncService implements OnModuleInit, OnModuleDestroy {
     this.stopped = true;
     this.generation += 1;
     if (this.timer) clearInterval(this.timer);
+    if (this.scheduler) clearInterval(this.scheduler);
     if (this.debounce) clearTimeout(this.debounce);
     this.unsubscribe?.();
     this.wake?.();
     this.closeIdle();
+  }
+
+  private async dispatchScheduled() {
+    if (this.dispatching || this.stopped) return;
+    this.dispatching = true;
+    try {
+      const sent = await this.mailbox.runDueScheduled();
+      if (sent) this.scheduleSync();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Agendador de envio: ${message.slice(0, 180)}`);
+    } finally {
+      this.dispatching = false;
+    }
   }
 
   private restartIdle() {

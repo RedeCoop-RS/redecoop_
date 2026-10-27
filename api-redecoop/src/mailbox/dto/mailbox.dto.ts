@@ -13,7 +13,25 @@ import {
   MaxLength,
   Min,
   MinLength,
+  IsISO8601,
+  Matches,
+  ValidateNested,
 } from 'class-validator';
+
+export class MailboxSignatureDto {
+  @IsString()
+  @Matches(/^[a-z0-9-]{1,64}$/i)
+  id: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(80)
+  name: string;
+
+  @IsString()
+  @MaxLength(20000)
+  html: string;
+}
 
 export class UpsertMailboxAccountDto {
   @IsOptional()
@@ -77,6 +95,25 @@ export class UpsertMailboxAccountDto {
   @Min(30)
   @Max(3600)
   syncIntervalSeconds?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @ValidateNested({ each: true })
+  @Type(() => MailboxSignatureDto)
+  signatures?: MailboxSignatureDto[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  defaultSignatureId?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(30)
+  undoSendSeconds?: number;
 }
 
 export class TestMailboxDto {
@@ -187,6 +224,70 @@ export class ListMessagesDto {
   @IsOptional()
   @IsIn(['date_desc', 'date_asc', 'subject', 'from'])
   sort?: 'date_desc' | 'date_asc' | 'subject' | 'from';
+
+  @IsOptional()
+  @QueryBool()
+  @IsBoolean()
+  threads?: boolean;
+}
+
+export class MessageRefDto {
+  @IsString()
+  @MaxLength(500)
+  folder: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  uid: number;
+}
+
+export class ReceiptDto extends MessageRefDto {
+  @IsBoolean()
+  send: boolean;
+}
+
+export class AttachOriginalDto extends MessageRefDto {
+  @IsBoolean()
+  asAttachment: boolean;
+}
+
+export class FolderPathDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(500)
+  path: string;
+}
+
+const FOLDER_NAME = /^[^\\/\x00-\x1f*%"]{1,120}$/;
+
+export class CreateFolderDto {
+  @IsString()
+  @Matches(FOLDER_NAME, { message: 'Nome de pasta inválido.' })
+  name: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  parent?: string;
+}
+
+export class RenameFolderDto extends FolderPathDto {
+  @IsString()
+  @Matches(FOLDER_NAME, { message: 'Nome de pasta inválido.' })
+  name: string;
+}
+
+export class ContactsQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  q?: string;
+}
+
+export class ScheduleDraftDto {
+  @IsISO8601()
+  sendAt: string;
 }
 
 export class ReadMessageDto {
@@ -283,12 +384,25 @@ export class SaveDraftDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(500000)
+  @MaxLength(12_000_000)
   html?: string;
 
   @IsOptional()
   @IsIn(['new', 'reply', 'replyAll', 'forward'])
   mode?: string;
+
+  @IsOptional()
+  @IsIn(['high', 'normal', 'low'])
+  priority?: 'high' | 'normal' | 'low';
+
+  @IsOptional()
+  @IsBoolean()
+  requestReceipt?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  signatureId?: string;
 
   @IsOptional()
   @IsString()
@@ -320,6 +434,19 @@ export class SendMailDto extends SaveDraftDto {
   @Type(() => Number)
   @IsInt()
   draftId?: number;
+
+  /** Atraso do "desfazer envio". 0 envia na hora. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(30)
+  delaySeconds?: number;
+
+  /** Envio agendado (ISO 8601). */
+  @IsOptional()
+  @IsISO8601()
+  sendAt?: string;
 }
 
 export class AuditQueryDto {

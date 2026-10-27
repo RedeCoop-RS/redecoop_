@@ -17,6 +17,7 @@ export interface MailboxCredentials {
 export interface RemoteFolder {
   path: string;
   name: string;
+  delimiter?: string;
   specialUse?: string;
   flags: string[];
   selectable: boolean;
@@ -41,12 +42,18 @@ export interface RemoteEnvelope {
   answered: boolean;
   hasAttachments: boolean;
   size: number;
+  priority?: string;
+  listUnsubscribe?: string;
+  receiptTo?: string;
+  headersCached?: boolean;
+  previewPart?: { part: string; encoding?: string; charset?: string; html: boolean };
 }
 
 export interface OutgoingAttachment {
   filename: string;
   content: Buffer;
   contentType?: string;
+  cid?: string;
 }
 
 export interface OutgoingMail {
@@ -61,6 +68,13 @@ export interface OutgoingMail {
   inReplyTo?: string;
   references?: string;
   attachments?: OutgoingAttachment[];
+  priority?: 'high' | 'normal' | 'low';
+  receiptTo?: string;
+}
+
+export interface MailboxQuota {
+  usage: number;
+  limit: number;
 }
 
 export type { MessageStructureObject };

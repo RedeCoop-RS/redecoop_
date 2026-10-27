@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Reflector } from '@nestjs/core';
 import { UserRole } from '@/User/entities/user.entity';
 import { ROLES_KEY } from '@/_common/decorators/role.decorator';
+import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { IS_PUBLIC_KEY } from '@/_common/decorators/skipAuth.decorator';
 import { AuthGuard } from '@/_common/guards/auth.guard';
 import { MailboxController } from '../mailbox.controller';
@@ -23,8 +24,33 @@ function httpContext(
 }
 
 describe('acesso de super admin ao e-mail', () => {
-  it('o controller exige o papel ADMIN', () => {
-    expect(Reflect.getMetadata(ROLES_KEY, MailboxController)).toEqual([UserRole.ADMIN]);
+  it('o controller usa o guard de super admin e não @Roles (que viraria 401)', () => {
+    expect(Reflect.getMetadata(GUARDS_METADATA, MailboxController)).toContain(
+      MailboxSuperAdminGuard,
+    );
+    expect(Reflect.getMetadata(ROLES_KEY, MailboxController)).toBeUndefined();
+  });
+
+  it('cooperativa autenticada passa no AuthGuard e recebe 403 no guard do e-mail', async () => {
+    const reflector = {
+      getAllAndOverride: (key: string) => (key === IS_PUBLIC_KEY ? false : undefined),
+    } as unknown as Reflector;
+    const jwt = {
+      verifyAsync: async () => ({ role: UserRole.COOPERATIVE, userId: 9, sub: 9 }),
+    } as unknown as JwtService;
+    const context = httpContext(undefined);
+    await expect(new AuthGuard(jwt, reflector).canActivate(context)).resolves.toBe(true);
+    expect(() => new MailboxSuperAdminGuard().canActivate(context)).toThrow(ForbiddenException);
+  });
+
+  it('sem token o AuthGuard global responde 401', async () => {
+    const reflector = {
+      getAllAndOverride: (key: string) => (key === IS_PUBLIC_KEY ? false : undefined),
+    } as unknown as Reflector;
+    const jwt = { verifyAsync: async () => ({}) } as unknown as JwtService;
+    await expect(
+      new AuthGuard(jwt, reflector).canActivate(httpContext(undefined, '')),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('nega cooperativa e visitante e aceita ADMIN', () => {
