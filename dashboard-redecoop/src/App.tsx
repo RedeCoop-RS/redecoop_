@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { MailboxUnreadProvider } from '@/contexts/MailboxUnreadContext'
 import { PendingRequestsProvider } from '@/contexts/PendingRequestsContext'
 import { SocketProvider } from '@/contexts/SocketContext'
 import { ModalProvider } from '@/contexts/ModalContext'
@@ -67,6 +68,9 @@ const ReportsPage = lazy(() =>
 const CafPanelPage = lazy(() =>
   import('@/pages/CafPanelPage').then((m) => ({ default: m.CafPanelPage })),
 )
+const MailboxPage = lazy(() =>
+  import('@/pages/MailboxPage').then((m) => ({ default: m.MailboxPage })),
+)
 
 function PageLoader() {
   return <LoadingOverlay visible message="Carregando página..." />
@@ -75,6 +79,7 @@ function PageLoader() {
 export default function App() {
   return (
     <AuthProvider>
+      <MailboxUnreadProvider>
       <PendingRequestsProvider>
       <SocketProvider>
         <ModalProvider>
@@ -96,6 +101,7 @@ export default function App() {
                     <Route path="compras-coletivas" element={<CollectivePurchasePage />} />
                     <Route path="viagens-disponiveis" element={<TravelsPage />} />
                     <Route path="mensagens" element={<MessagesPage />} />
+                    <Route path="email" element={<MailboxPage />} />
                     <Route path="visitantes-e-solicitacoes" element={<VisitorsPage />} />
                     {/* <Route path="audiencia-do-site" element={<SiteAnalyticsPage />} /> */}
                     <Route path="balcao-de-negocios" element={<BusinessDeskPage />} />
@@ -169,6 +175,7 @@ export default function App() {
         </ModalProvider>
       </SocketProvider>
       </PendingRequestsProvider>
+      </MailboxUnreadProvider>
     </AuthProvider>
   )
 }

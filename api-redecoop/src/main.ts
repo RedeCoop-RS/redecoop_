@@ -18,7 +18,11 @@ import initSwagger from './swagger';
 async function bootstrap() {
   process.env.TZ = 'Etc/Universal';
   initializeTransactionalContext({ storageDriver: StorageDriver.AUTO });
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+  });
+  app.useBodyParser('json', { limit: '2mb' });
+  app.useBodyParser('urlencoded', { limit: '2mb', extended: true });
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
   registerGlobals(app);
   app.useStaticAssets(join(__dirname, '..', 'upload'), {

@@ -6,6 +6,7 @@ import {
   FileText,
   HelpCircle,
   LayoutDashboard,
+  Mail,
   MessageSquare,
   Package,
   Settings,
@@ -29,6 +30,7 @@ export interface NavItem {
   icon: LucideIcon
   submenu?: NavSubItem[]
   action?: 'notifications'
+  badge?: 'mailbox'
 }
 
 export interface NavDivider {
@@ -55,6 +57,7 @@ const adminNav: SidebarItem[] = [
     submenu: [{ name: 'Viagens disponíveis', url: '/admin/viagens-disponiveis' }],
   },
   { name: 'Mensagens', url: '/admin/mensagens', icon: MessageSquare },
+  { name: 'E-mail', url: '/admin/email', icon: Mail, badge: 'mailbox' },
   { name: 'Visitantes e solicitações', url: '/admin/visitantes-e-solicitacoes', icon: Users },
   // { name: 'Audiência do site', url: '/admin/audiencia-do-site', icon: Globe },
   { name: 'Balcão de Negócios', url: '/admin/balcao-de-negocios', icon: BarChart3 },

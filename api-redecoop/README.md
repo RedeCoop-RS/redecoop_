@@ -19,6 +19,7 @@ Backend desenvolvido em [NestJS](https://nestjs.com/) para gestão de cooperativ
 - **Usuários e Autenticação**: Login, troca de senha, recuperação de acesso, papéis e permissões.
 - **Visitantes**: Solicitação de acesso, envio de mensagens e orçamentos.
 - **Administração**: Painel para administração geral do sistema.
+- **E-mail do super admin**: cliente IMAP/SMTP no painel (`/admin/email`), exclusivo do papel `ADMIN`.
 
 ## Instalação
 
@@ -29,6 +30,27 @@ npm install
 ## Configuração
 
 Crie um arquivo `.env` baseado no `.env.example` com as variáveis de ambiente necessárias, como conexão com banco de dados, tokens de mapas, e-mail, etc.
+
+### E-mail do super admin
+
+O cliente de e-mail fica em `/admin/email` e só responde para o papel `ADMIN` (super administrador do painel). Cooperativa, motorista e visitante recebem 401/403.
+
+A senha IMAP/SMTP é gravada cifrada (AES-256-GCM) e nunca volta na API. Defina no `.env`:
+
+| Variável | Função |
+| --- | --- |
+| `MAILBOX_ENCRYPTION_KEY` | Chave da senha da caixa. Mínimo de 16 caracteres. Sem ela a caixa não pode ser salva. |
+| `MAILBOX_SYNC_INTERVAL_SECONDS` | Intervalo da sincronização e do IDLE (mínimo 30). |
+| `MAILBOX_SYNC_MESSAGE_LIMIT` | Quantidade de mensagens recentes por pasta. |
+| `MAILBOX_MAX_ATTACHMENT_BYTES` | Tamanho máximo de cada anexo. |
+| `MAILBOX_UPLOAD_DIR` | Pasta privada dos anexos de rascunho (fora de `/storage`). |
+| `MAILBOX_TLS_REJECT_UNAUTHORIZED` | `false` apenas para certificado rejeitado pelo Node. |
+
+No painel, abra **E-mail** e use o preset **Hostinger** (padrão): IMAP `imap.hostinger.com:993` SSL/TLS e SMTP `smtp.hostinger.com:465` SSL. O usuário é o e-mail completo. **Testar conexão** valida IMAP e SMTP; **Salvar** só grava depois dessa verificação. O preset **Personalizado** libera host, porta e TLS para outros provedores.
+
+Depois de configurar, rode a migration `npm run migration:run` para criar as tabelas `mailbox_*`.
+
+As variáveis `SMTP_*` continuam valendo só para os e-mails transacionais do sistema (recuperação de senha, contato etc.).
 
 ## Executando o Projeto
 
