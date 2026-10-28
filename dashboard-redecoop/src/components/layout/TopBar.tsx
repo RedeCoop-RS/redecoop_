@@ -1,4 +1,4 @@
-import { Bell, Mail, Menu } from 'lucide-react'
+import { Bell, Mail, Menu, Newspaper } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { NotifyBadge } from '@/components/ui/NotifyBadge'
 import { useAuth } from '@/contexts/AuthContext'
@@ -41,6 +41,11 @@ export function TopBar({
           >
             <Mail size={18} />
             <NotifyBadge count={mailboxUnread} variant="floating" label="E-mails não lidos" />
+          </Link>
+        )}
+        {isAdmin && (
+          <Link to="/admin/blog" className="topbar-icon-btn" aria-label="Blog">
+            <Newspaper size={18} />
           </Link>
         )}
         <button

@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "test": "playwright test",
+    "test:blog": "E2E_SUITE=blog playwright test",
     "seed": "node scripts/seed-users.cjs",
     "smoke:real": "tsx scripts/real-mailbox-smoke.ts"
   },

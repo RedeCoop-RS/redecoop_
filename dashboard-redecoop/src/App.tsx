@@ -71,6 +71,9 @@ const CafPanelPage = lazy(() =>
 const MailboxPage = lazy(() =>
   import('@/pages/MailboxPage').then((m) => ({ default: m.MailboxPage })),
 )
+const BlogPage = lazy(() =>
+  import('@/pages/BlogPage').then((m) => ({ default: m.BlogPage })),
+)
 
 function PageLoader() {
   return <LoadingOverlay visible message="Carregando página..." />
@@ -102,6 +105,7 @@ export default function App() {
                     <Route path="viagens-disponiveis" element={<TravelsPage />} />
                     <Route path="mensagens" element={<MessagesPage />} />
                     <Route path="email" element={<MailboxPage />} />
+                    <Route path="blog" element={<BlogPage />} />
                     <Route path="visitantes-e-solicitacoes" element={<VisitorsPage />} />
                     {/* <Route path="audiencia-do-site" element={<SiteAnalyticsPage />} /> */}
                     <Route path="balcao-de-negocios" element={<BusinessDeskPage />} />

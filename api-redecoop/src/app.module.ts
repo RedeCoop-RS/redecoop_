@@ -40,6 +40,7 @@ import { ReportModule } from './report/report.module';
 import { GraphModule } from './graph/graph.module';
 import { EmailModule } from './email/email.module';
 import { MailboxModule } from './mailbox/mailbox.module';
+import { BlogModule } from './blog/blog.module';
 import { ValueRangeModule } from './valueRange/valueRange.module';
 import { WeightRangeModule } from './weightRange/weightRange.module';
 import { DistanceRangeModule } from './distanceRange/distanceRange.module';
@@ -66,6 +67,7 @@ function requireJwtSecret(): string {
     DbModule,
     EmailModule,
     MailboxModule,
+    BlogModule,
     NestjsFormDataModule.config({
       isGlobal: true,
       storage: FileSystemStoredFile,

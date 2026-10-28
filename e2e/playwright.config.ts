@@ -1,7 +1,11 @@
 import { defineConfig } from '@playwright/test'
 
+const blog = process.env.E2E_SUITE === 'blog'
+
 export default defineConfig({
   testDir: './tests',
+  testMatch: blog ? '**/blog/**/*.spec.ts' : '**/*.spec.ts',
+  testIgnore: blog ? undefined : '**/blog/**',
   globalSetup: './global-setup.ts',
   fullyParallel: false,
   workers: 1,
