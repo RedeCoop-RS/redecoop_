@@ -8,6 +8,7 @@ import {
   mailboxService,
   type MailAuditEntry,
   type MailboxAccountView,
+  type MailSignature,
   type SaveAccountInput,
 } from '@/services/mailbox.service'
 import { DEFAULT_MAIL_PRESET, detectPreset, MAIL_PRESETS, presetById, type MailPresetId } from './presets'
@@ -31,8 +32,23 @@ interface FormState {
   smtpSecure: boolean
   username: string
   password: string
-  signatureHtml: string
+  signatures: MailSignature[]
+  defaultSignatureId: string
+  undoSendSeconds: number
   syncIntervalSeconds: number
+}
+
+function signatureId() {
+  return `sig-${Math.random().toString(36).slice(2, 10)}`
+}
+
+function signatureHtml(value: string) {
+  const text = value.trim()
+  if (!text || /<[a-z][\s\S]*>/i.test(text)) return text
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'))
+    .join('<br>')
 }
 
 const HOSTINGER = presetById('hostinger')!
@@ -52,7 +68,9 @@ function blankForm(): FormState {
     smtpSecure: HOSTINGER.smtpSecure,
     username: '',
     password: '',
-    signatureHtml: '',
+    signatures: [],
+    defaultSignatureId: '',
+    undoSendSeconds: 10,
     syncIntervalSeconds: 60,
   }
 }
@@ -73,7 +91,9 @@ function fromAccount(account: MailboxAccountView | null): FormState {
     smtpSecure: account.smtpSecure ?? true,
     username: account.username || account.email || '',
     password: '',
-    signatureHtml: account.signatureHtml || '',
+    signatures: account.signatures || [],
+    defaultSignatureId: account.defaultSignatureId || '',
+    undoSendSeconds: account.undoSendSeconds ?? 10,
     syncIntervalSeconds: account.syncIntervalSeconds || 60,
   }
 }
@@ -159,7 +179,11 @@ export function MailboxSettings({ account, onClose, onSaved }: MailboxSettingsPr
       smtpSecure: form.smtpSecure,
       username: form.username.trim(),
       password: form.password.trim() || undefined,
-      signatureHtml: form.signatureHtml.trim() || undefined,
+      signatures: form.signatures
+        .filter((item) => item.html.trim())
+        .map((item) => ({ id: item.id, name: item.name.trim() || 'Assinatura', html: signatureHtml(item.html) })),
+      defaultSignatureId: form.defaultSignatureId || undefined,
+      undoSendSeconds: Math.min(30, Math.max(0, Number(form.undoSendSeconds) || 0)),
       syncIntervalSeconds: Number(form.syncIntervalSeconds) || 60,
     }
   }
@@ -323,14 +347,67 @@ export function MailboxSettings({ account, onClose, onSaved }: MailboxSettingsPr
           <p className="mailbox-settings__hint">Desmarque SSL para STARTTLS, em geral nas portas 143 (IMAP) e 587 (SMTP).</p>
         )}
 
+        <fieldset className="mailbox-settings__signatures">
+          <legend>Assinaturas</legend>
+          {form.signatures.length === 0 && <p className="mailbox-settings__hint">Nenhuma assinatura. As mensagens saem sem rodapé.</p>}
+          {form.signatures.map((item, index) => (
+            <div key={item.id} className="mailbox-signature">
+              <div className="mailbox-signature__head">
+                <input
+                  aria-label={`Nome da assinatura ${index + 1}`}
+                  value={item.name}
+                  maxLength={80}
+                  onChange={(event) => patch({ signatures: form.signatures.map((entry) => (entry.id === item.id ? { ...entry, name: event.target.value } : entry)) })}
+                />
+                <label className="mailbox-check">
+                  <input
+                    type="radio"
+                    name="default-signature"
+                    checked={(form.defaultSignatureId || form.signatures[0]?.id) === item.id}
+                    onChange={() => patch({ defaultSignatureId: item.id })}
+                  />
+                  Padrão
+                </label>
+                <button
+                  type="button"
+                  className="mailbox-link"
+                  onClick={() => patch({ signatures: form.signatures.filter((entry) => entry.id !== item.id), defaultSignatureId: form.defaultSignatureId === item.id ? '' : form.defaultSignatureId })}
+                >
+                  Remover
+                </button>
+              </div>
+              <textarea
+                aria-label={`Texto da assinatura ${item.name || index + 1}`}
+                value={item.html}
+                onChange={(event) => patch({ signatures: form.signatures.map((entry) => (entry.id === item.id ? { ...entry, html: event.target.value } : entry)) })}
+                rows={3}
+                placeholder="Texto ou HTML simples incluído ao enviar."
+              />
+            </div>
+          ))}
+          {form.signatures.length < 10 && (
+            <button
+              type="button"
+              className="mailbox-link"
+              onClick={() => {
+                const id = signatureId()
+                patch({ signatures: [...form.signatures, { id, name: form.signatures.length ? `Assinatura ${form.signatures.length + 1}` : 'Principal', html: '' }], defaultSignatureId: form.defaultSignatureId || id })
+              }}
+            >
+              + Adicionar assinatura
+            </button>
+          )}
+        </fieldset>
+
         <label className="mailbox-settings__signature">
-          <span>Assinatura</span>
-          <textarea
-            value={form.signatureHtml}
-            onChange={(event) => patch({ signatureHtml: event.target.value })}
-            rows={4}
-            placeholder="Texto ou HTML simples incluído ao enviar."
-          />
+          <span>Tempo para desfazer o envio</span>
+          <select value={form.undoSendSeconds} onChange={(event) => patch({ undoSendSeconds: Number(event.target.value) })}>
+            <option value={0}>Desligado</option>
+            <option value={5}>5 segundos</option>
+            <option value={10}>10 segundos</option>
+            <option value={20}>20 segundos</option>
+            <option value={30}>30 segundos</option>
+          </select>
         </label>
 
         {testMessage && (

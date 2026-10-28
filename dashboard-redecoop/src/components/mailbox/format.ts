@@ -80,8 +80,29 @@ function isSelf(address: string | undefined | null, own: string[]) {
   return Boolean(value) && own.includes(value)
 }
 
-export function buildReply(message: MailMessage, own: string[], all: boolean) {
-  const from = message.replyTo?.[0]?.address || message.from?.address || ''
+export function buildReply(message: MailMessage, own: string[], all: boolean, fromSent = false) {
+  const sender = message.replyTo?.[0]?.address || message.from?.address || ''
+  const sentByMe = fromSent || isSelf(message.from?.address, own)
+  // Responder algo que eu mesmo enviei volta para quem recebeu, como no Gmail.
+  if (sentByMe) {
+    const recipients = (message.to || []).map((item) => item.address).filter((item) => item && (!isSelf(item, own) || (message.to || []).length === 1))
+    const ccMine = all ? (message.cc || []).map((item) => item.address).filter((item) => item && !isSelf(item, own)) : []
+    const references = [message.references, message.messageId].filter(Boolean).join(' ')
+    return {
+      mode: all ? 'replyAll' : 'reply',
+      to: (all ? recipients : recipients.slice(0, 1)).join(', ') || sender,
+      cc: ccMine.join(', '),
+      bcc: '',
+      subject: subjectWithPrefix(message.subject || '', 'Re'),
+      html: quoteBlock(message),
+      sourceFolder: message.folder,
+      sourceUid: message.uid,
+      inReplyTo: message.messageId || undefined,
+      references,
+      includeSignature: true,
+    }
+  }
+  const from = sender
   const toList = all
     ? [from, ...(message.to || []).map((item) => item.address)].filter((item, index, list) => {
         const key = item.toLowerCase()
@@ -100,7 +121,7 @@ export function buildReply(message: MailMessage, own: string[], all: boolean) {
     cc: ccList.join(', '),
     bcc: '',
     subject: subjectWithPrefix(message.subject || '', 'Re'),
-    html: `<p><br></p>${quoteBlock(message)}`,
+    html: quoteBlock(message),
     sourceFolder: message.folder,
     sourceUid: message.uid,
     inReplyTo: message.messageId || undefined,
@@ -132,4 +153,41 @@ export function buildForward(message: MailMessage) {
     references: message.messageId || undefined,
     includeSignature: true,
   }
+}
+
+export function buildForwardAsAttachment(message: MailMessage) {
+  return {
+    mode: 'forward' as const,
+    to: '',
+    cc: '',
+    bcc: '',
+    subject: subjectWithPrefix(message.subject || '', 'Enc'),
+    html: '<p><br></p><p>Segue a mensagem original em anexo.</p>',
+    sourceFolder: message.folder,
+    sourceUid: message.uid,
+    inReplyTo: undefined,
+    references: message.messageId || undefined,
+    includeSignature: true,
+  }
+}
+
+export function printableMessage(message: MailMessage) {
+  const rows = [
+    ['De', formatAddress({ name: message.from?.name || undefined, address: message.from?.address || '' })],
+    ['Para', (message.to || []).map(formatAddress).join(', ')],
+    ['Cc', (message.cc || []).map(formatAddress).join(', ')],
+    ['Data', formatFullDate(message.date)],
+  ].filter(([, value]) => value)
+  const body = message.html || `<pre style="white-space:pre-wrap">${escapeHtml(message.text || '')}</pre>`
+  return `<!doctype html><html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: cid:; style-src 'unsafe-inline'">
+<title>${escapeHtml(message.subject || 'Mensagem')}</title>
+<style>body{font-family:Inter,system-ui,sans-serif;color:#111;margin:24px;font-size:14px}h1{font-size:18px;margin:0 0 12px}
+table{border-collapse:collapse;margin-bottom:16px}td{padding:2px 12px 2px 0;vertical-align:top}td:first-child{color:#555;font-weight:600}
+hr{border:0;border-top:1px solid #ccc;margin:12px 0}img{max-width:100%}</style></head><body>
+<h1>${escapeHtml(message.subject || '(sem assunto)')}</h1>
+<table>${rows.map(([label, value]) => `<tr><td>${label}</td><td>${escapeHtml(value)}</td></tr>`).join('')}</table><hr>
+${body}
+${message.attachments.length ? `<hr><p>Anexos: ${message.attachments.map((file) => escapeHtml(file.filename)).join(', ')}</p>` : ''}
+</body></html>`
 }

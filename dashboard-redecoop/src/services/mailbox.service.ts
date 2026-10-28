@@ -20,10 +20,33 @@ export interface MailboxAccountView {
   username?: string
   hasPassword: boolean
   signatureHtml?: string
+  signatures?: MailSignature[]
+  defaultSignatureId?: string | null
+  undoSendSeconds?: number
   syncIntervalSeconds?: number
   lastSyncAt?: string | null
   lastError?: string | null
   unread: number
+}
+
+export interface MailSignature {
+  id: string
+  name: string
+  html: string
+}
+
+export type MailPriority = 'high' | 'normal' | 'low'
+
+export interface MailCounts {
+  total: number
+  unread: number
+  starred: number
+  attachments: number
+}
+
+export interface MailContact {
+  name?: string | null
+  address: string
 }
 
 export interface MailFolder {
@@ -50,6 +73,9 @@ export interface MailListItem {
   hasAttachments: boolean
   threadKey: string
   size: number
+  priority?: MailPriority
+  threadCount?: number
+  threadUnread?: number
 }
 
 export interface MailAttachment {
@@ -89,6 +115,9 @@ export interface MailMessage extends MailListItem {
   remoteImagesBlocked: boolean
   attachments: MailAttachment[]
   thread: MailThreadItem[]
+  listUnsubscribe?: string | null
+  receiptRequested?: boolean
+  receiptTo?: string | null
 }
 
 export interface MailDraftAttachment {
@@ -96,6 +125,7 @@ export interface MailDraftAttachment {
   filename: string
   contentType: string
   size: number
+  contentId?: string | null
 }
 
 export interface MailDraft {
@@ -111,6 +141,12 @@ export interface MailDraft {
   inReplyTo?: string | null
   references?: string | null
   includeSignature: boolean
+  signatureId?: string | null
+  priority?: MailPriority
+  requestReceipt?: boolean
+  scheduledAt?: string | null
+  sending?: boolean
+  scheduleError?: string | null
   updatedAt: string
   attachments: MailDraftAttachment[]
 }
@@ -137,6 +173,9 @@ export interface SaveAccountInput {
   username: string
   password?: string
   signatureHtml?: string
+  signatures?: MailSignature[]
+  defaultSignatureId?: string | null
+  undoSendSeconds?: number
   syncIntervalSeconds?: number
 }
 
@@ -153,7 +192,16 @@ export interface SendMailInput {
   inReplyTo?: string
   references?: string
   includeSignature?: boolean
+  signatureId?: string | null
+  priority?: MailPriority
+  requestReceipt?: boolean
+  delaySeconds?: number
+  sendAt?: string
 }
+
+export type SendResult =
+  | { ok: boolean; scheduled?: false; messageId: string; warning?: string }
+  | { ok: boolean; scheduled: true; undoable: boolean; draftId: number; sendAt: string }
 
 export function mailboxErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
@@ -226,16 +274,89 @@ export const mailboxService = {
     starred?: boolean
     attachments?: boolean
     sort?: string
+    threads?: boolean
   }) {
-    return apiFetchData<{ data: MailListItem[]; total: number; page: number; limit: number }>(
+    return apiFetchData<{ data: MailListItem[]; total: number; page: number; limit: number; counts?: MailCounts }>(
       `/root/mailbox/messages?${query(params)}`,
     )
   },
 
-  read(folder: string, uid: number, loadRemoteImages = false) {
+  read(folder: string, uid: number, loadRemoteImages = false, peek = false) {
     return apiFetchData<MailMessage>(
-      `/root/mailbox/messages/read?${query({ folder, uid, loadRemoteImages })}`,
+      `/root/mailbox/messages/read?${query({ folder, uid, loadRemoteImages, peek })}`,
     )
+  },
+
+  notSpam(folder: string, uids: number[]) {
+    return apiFetchData<{ ok: boolean }>('/root/mailbox/messages/not-spam', {
+      method: 'POST',
+      body: JSON.stringify({ folder, uids }),
+    })
+  },
+
+  receipt(folder: string, uid: number, send: boolean) {
+    return apiFetchData<{ ok: boolean; sent: boolean }>('/root/mailbox/messages/receipt', {
+      method: 'POST',
+      body: JSON.stringify({ folder, uid, send }),
+    })
+  },
+
+  sourceBlob(folder: string, uid: number) {
+    return apiFetchBlob(`/root/mailbox/messages/source?${query({ folder, uid })}`)
+  },
+
+  createFolder(name: string, parent?: string) {
+    return apiFetchData<{ ok: boolean; path: string }>('/root/mailbox/folders', {
+      method: 'POST',
+      body: JSON.stringify({ name, parent }),
+    })
+  },
+
+  renameFolder(path: string, name: string) {
+    return apiFetchData<{ ok: boolean; path: string }>('/root/mailbox/folders', {
+      method: 'PUT',
+      body: JSON.stringify({ path, name }),
+    })
+  },
+
+  deleteFolder(path: string) {
+    return apiFetchData<{ ok: boolean }>('/root/mailbox/folders/delete', {
+      method: 'POST',
+      body: JSON.stringify({ path }),
+    })
+  },
+
+  readAll(path: string) {
+    return apiFetchData<{ ok: boolean; unread: number }>('/root/mailbox/folders/read-all', {
+      method: 'POST',
+      body: JSON.stringify({ path }),
+    })
+  },
+
+  emptyFolder(path: string) {
+    return apiFetchData<{ ok: boolean; removed: number }>('/root/mailbox/folders/empty', {
+      method: 'POST',
+      body: JSON.stringify({ path }),
+    })
+  },
+
+  quota() {
+    return apiFetchData<{ supported: boolean; usage: number; limit: number }>('/root/mailbox/quota')
+  },
+
+  contacts(q: string) {
+    return apiFetchData<MailContact[]>(`/root/mailbox/contacts?${query({ q })}`)
+  },
+
+  attachOriginal(draftId: number, folder: string, uid: number, asAttachment: boolean) {
+    return apiFetchData<MailDraft>(`/root/mailbox/drafts/${draftId}/original`, {
+      method: 'POST',
+      body: JSON.stringify({ folder, uid, asAttachment }),
+    })
+  },
+
+  cancelScheduled(draftId: number) {
+    return apiFetchData<MailDraft>(`/root/mailbox/drafts/${draftId}/schedule`, { method: 'DELETE' })
   },
 
   seen(folder: string, uids: number[], seen: boolean) {
@@ -322,7 +443,7 @@ export const mailboxService = {
   },
 
   send(input: SendMailInput) {
-    return apiFetchData<{ ok: boolean; messageId: string; warning?: string }>('/root/mailbox/send', {
+    return apiFetchData<SendResult>('/root/mailbox/send', {
       method: 'POST',
       body: JSON.stringify(input),
     })
