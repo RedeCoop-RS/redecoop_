@@ -51,7 +51,8 @@ export function MailboxPage() {
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null
-      const typing = Boolean(target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable))
+      const textInput = target instanceof HTMLInputElement && !['checkbox', 'radio', 'button', 'submit'].includes(target.type)
+      const typing = Boolean(target && (textInput || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable))
       if (event.key === 'Escape') {
         if (mail.preview) mail.closePreview()
         else if (mail.source) mail.closeSource()

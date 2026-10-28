@@ -115,8 +115,8 @@ export function sanitizeMailboxHtml(
           attribs: {
             src,
             alt: attribs.alt || '',
-            width: attribs.width,
-            height: attribs.height,
+            ...(attribs.width ? { width: attribs.width } : {}),
+            ...(attribs.height ? { height: attribs.height } : {}),
           },
         };
       },

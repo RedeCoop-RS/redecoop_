@@ -36,6 +36,12 @@ describe('sanitizeMailboxHtml', () => {
     ).toHaveLength(1);
   });
 
+  it('não gera atributos width/height vazios em imagens', () => {
+    const { html } = sanitizeMailboxHtml('<img src="cid:logo@x" alt="logo" style="max-width:100%">', { allowRemoteImages: false });
+    expect(html).toBe('<img src="cid:logo@x" alt="logo" />');
+    expect(sanitizeMailboxHtml('<img src="cid:a@x" width="40">', { allowRemoteImages: false }).html).toContain('width="40"');
+  });
+
   it('converte HTML em texto', () => {
     expect(htmlToText('<p>Olá<br>rede</p>')).toBe('Olá\nrede');
   });

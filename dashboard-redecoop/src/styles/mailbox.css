@@ -597,7 +597,8 @@
 }
 
 .mailbox-folder-row:hover .mailbox-folder-actions,
-.mailbox-folder-row:focus-within .mailbox-folder-actions {
+.mailbox-folder-row:focus-within .mailbox-folder-actions,
+.mailbox-folder-row:has(.mailbox-folder--active) .mailbox-folder-actions {
   display: inline-flex;
 }
 

@@ -12,11 +12,14 @@ export const MAILBOX_SPECIAL_USES = [
 
 export type MailboxSpecialUse = (typeof MAILBOX_SPECIAL_USES)[number];
 
+// Testes E2E disparam muitas ações seguidas com o mesmo usuário; em produção fica 1.
+const RATE_LIMIT_SCALE = Math.max(1, Math.min(100, Number(process.env.MAILBOX_RATE_LIMIT_SCALE) || 1));
+
 export const MAILBOX_LIMITS = {
-  send: { limit: 20, windowMs: 10 * 60 * 1000 },
-  test: { limit: 8, windowMs: 5 * 60 * 1000 },
-  sync: { limit: 12, windowMs: 60 * 1000 },
-  upload: { limit: 40, windowMs: 10 * 60 * 1000 },
+  send: { limit: 20 * RATE_LIMIT_SCALE, windowMs: 10 * 60 * 1000 },
+  test: { limit: 8 * RATE_LIMIT_SCALE, windowMs: 5 * 60 * 1000 },
+  sync: { limit: 12 * RATE_LIMIT_SCALE, windowMs: 60 * 1000 },
+  upload: { limit: 40 * RATE_LIMIT_SCALE, windowMs: 10 * 60 * 1000 },
 };
 
 export const BLOCKED_ATTACHMENT_EXTENSIONS = new Set([
@@ -74,6 +77,13 @@ export function safeFilename(name: string): string {
     .replace(/^\.+/, '')
     .slice(0, 180);
   return base || 'anexo';
+}
+
+/** O multer entrega o nome do arquivo lido como latin1; navegadores enviam UTF-8. */
+export function uploadedFilename(name: string | undefined): string {
+  if (!name || /[^\x00-\xff]/.test(name)) return name || '';
+  const decoded = Buffer.from(name, 'latin1').toString('utf8');
+  return decoded.includes('\uFFFD') ? name : decoded;
 }
 
 export function extensionOf(filename: string): string {

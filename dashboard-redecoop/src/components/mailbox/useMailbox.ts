@@ -30,6 +30,7 @@ export interface PendingSend {
   draftId: number
   sendAt: number
   subject: string
+  checks?: number
 }
 
 export interface FolderDialog {
@@ -98,6 +99,8 @@ export function useMailbox() {
   const [quota, setQuota] = useState<{ usage: number; limit: number } | null>(null)
   const folderRef = useRef<MailFolder | null>(null)
   const readyRef = useRef(false)
+  const draftIdRef = useRef<number | undefined>(undefined)
+  const draftCreateRef = useRef<Promise<MailDraft> | null>(null)
   const setUnreadCount = useRef(unread.setCount)
   folderRef.current = folder
   setUnreadCount.current = unread.setCount
@@ -212,6 +215,11 @@ export function useMailbox() {
     const timer = window.setTimeout(async () => {
       const list = await refreshDrafts()
       const draft = list.find((item) => item.id === pending.draftId)
+      const checks = pending.checks ?? 0
+      if (draft && !draft.scheduleError && (draft.sending || draft.scheduledAt) && checks < 40) {
+        setPending((current) => (current?.draftId === pending.draftId ? { ...current, sendAt: Date.now(), checks: checks + 1 } : current))
+        return
+      }
       setPending((current) => (current?.draftId === pending.draftId ? null : current))
       if (draft?.scheduleError) notify.error(`Não foi enviado: ${draft.scheduleError}`)
       else if (!draft) {
@@ -234,6 +242,7 @@ export function useMailbox() {
       setUnreadCount.current(synced.unread)
       await loadFolders()
       await loadMessages(next, 1)
+      void loadQuota()
     } catch (error) {
       notify.error(mailboxErrorMessage(error))
       await loadMessages(next, 1)
@@ -290,6 +299,8 @@ export function useMailbox() {
   }
 
   function openComposer(seed?: Partial<ComposerState>) {
+    draftIdRef.current = seed?.draftId
+    draftCreateRef.current = null
     setComposer({
       ...emptyComposer(account),
       ...seed,
@@ -304,8 +315,23 @@ export function useMailbox() {
     setComposer((current) => (current ? { ...current, ...partial, dirty: true } : current))
   }
 
+  // Autosalvamento e upload de anexo podem disparar juntos: só um deles cria o rascunho.
   async function persistDraft(current: ComposerState) {
-    const saved = await mailboxService.saveDraft(current, current.draftId)
+    let id = current.draftId ?? draftIdRef.current
+    if (!id && draftCreateRef.current) id = (await draftCreateRef.current).id
+    let saved: MailDraft
+    if (id) {
+      saved = await mailboxService.saveDraft(current, id)
+    } else {
+      const creating = mailboxService.saveDraft(current)
+      draftCreateRef.current = creating
+      try {
+        saved = await creating
+      } finally {
+        if (draftCreateRef.current === creating) draftCreateRef.current = null
+      }
+    }
+    draftIdRef.current = saved.id
     setComposer((latest) => (latest ? { ...latest, draftId: saved.id, saving: false, dirty: false, savedAt: new Date().toISOString(), attachments: saved.attachments } : latest))
     await refreshDrafts()
     return saved
@@ -404,9 +430,11 @@ export function useMailbox() {
 
   async function addFiles(files: FileList | File[] | null) {
     if (!files || !files.length || !composer) return
+    // FileList é "viva": o input é limpo logo após o onChange, antes do await abaixo.
+    const list = Array.from(files)
     try {
       const draft = await persistDraft(composer)
-      for (const file of Array.from(files)) {
+      for (const file of list) {
         if (file.size > 15 * 1024 * 1024) {
           notify.error(`${file.name} excede 15 MB.`)
           continue
@@ -429,7 +457,7 @@ export function useMailbox() {
     openComposer(base)
     if (!needsFiles) return
     try {
-      const draft = await mailboxService.saveDraft(base)
+      const draft = await persistDraft(base)
       const withFiles = await mailboxService.attachOriginal(draft.id, message.folder, message.uid, asAttachment)
       setComposer((current) => (current ? { ...current, draftId: draft.id, attachments: withFiles.attachments } : current))
       await refreshDrafts()

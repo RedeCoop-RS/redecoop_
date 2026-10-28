@@ -16,7 +16,8 @@ export class MailboxFolder {
   @Column()
   accountId: number;
 
-  @Column({ length: 500 })
+  /** Binário: no IMAP "Ação" e "Acao" (ou "Projetos" e "projetos") são pastas diferentes. */
+  @Column({ length: 500, charset: 'utf8mb4', collation: 'utf8mb4_bin' })
   path: string;
 
   @Column({ length: 255 })

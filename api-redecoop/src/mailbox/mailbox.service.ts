@@ -37,6 +37,7 @@ import {
   maxDraftBytes,
   safeFilename,
   syncMessageLimit,
+  uploadedFilename,
 } from './mailbox.constants';
 import { MailboxCredentials, RemoteEnvelope, RemoteFolder } from './mailbox.types';
 import { MAX_SOURCE_BYTES, PreviewRequest } from './mailbox-imap.service';
@@ -658,7 +659,7 @@ export class MailboxService {
       throw new NotFoundException('Rascunho não encontrado.');
     }
     try {
-      assertAllowedAttachment(file.originalname || file.filename, file.size);
+      assertAllowedAttachment(uploadedFilename(file.originalname) || file.filename, file.size);
     } catch (error) {
       if (file?.path) await fs.unlink(file.path).catch(() => undefined);
       const code = error instanceof Error ? error.message : '';
@@ -678,7 +679,7 @@ export class MailboxService {
     const saved = await this.draftFiles.save(
       this.draftFiles.create({
         draftId,
-        filename: safeFilename(file.originalname || 'anexo'),
+        filename: safeFilename(uploadedFilename(file.originalname) || 'anexo'),
         contentType: file.mimetype || 'application/octet-stream',
         size: file.size,
         storageName: basename(file.filename),
@@ -1409,7 +1410,16 @@ export class MailboxService {
     }
   }
 
-  private async upsertFolders(accountId: number, remote: RemoteFolder[]) {
+  private folderQueue: Promise<unknown> = Promise.resolve();
+
+  /** Sincronização, IDLE e criação de pasta podem rodar juntas; em paralelo inseririam a mesma pasta. */
+  private upsertFolders(accountId: number, remote: RemoteFolder[]) {
+    const run = this.folderQueue.then(() => this.writeFolders(accountId, remote));
+    this.folderQueue = run.catch(() => undefined);
+    return run;
+  }
+
+  private async writeFolders(accountId: number, remote: RemoteFolder[]) {
     const existing = await this.folders.find({ where: { accountId } });
     const byPath = new Map(existing.map((folder) => [folder.path, folder]));
     const seen = new Set<string>();
@@ -1839,10 +1849,15 @@ export class MailboxService {
     if (/\b55[03]\b/.test(lower) && lower.includes('recipient')) {
       return new BadRequestException('O servidor de envio recusou um dos destinatários.');
     }
+    const details = error as { authenticationFailed?: boolean; code?: string };
     if (
+      details?.authenticationFailed ||
+      details?.code === 'EAUTH' ||
       lower.includes('auth') ||
       lower.includes('invalid credentials') ||
-      lower.includes('authentication')
+      response.includes('authenticationfailed') ||
+      response.includes('authentication failed') ||
+      response.includes('invalid credentials')
     ) {
       return new BadRequestException(
         'Falha de autenticação. Confira usuário e senha. No Gmail, use uma senha de app com IMAP ativado.',

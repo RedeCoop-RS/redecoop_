@@ -75,7 +75,13 @@ export function AddressInput({ label, value, onChange, required, autoFocus }: Ad
         onFocus={() => setOpen(true)}
         onBlur={() => window.setTimeout(() => setOpen(false), 150)}
         onKeyDown={(event) => {
-          if (!suggestions.length) return
+          if (!suggestions.length) {
+            if (event.key === 'Enter' && !event.ctrlKey && !event.metaKey) {
+              event.preventDefault()
+              if (token.includes('@')) onChange(`${value.replace(/[\s,;]+$/, '')}, `)
+            }
+            return
+          }
           if (event.key === 'ArrowDown') {
             event.preventDefault()
             setActive((index) => (index + 1) % suggestions.length)

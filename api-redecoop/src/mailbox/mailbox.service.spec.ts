@@ -212,6 +212,25 @@ describe('MailboxService', () => {
       expect(smtp.verify).not.toHaveBeenCalled();
     });
 
+    it('reconhece senha errada no formato real do imapflow ("Command failed")', async () => {
+      imap.test.mockRejectedValue(
+        Object.assign(new Error('Command failed'), {
+          authenticationFailed: true,
+          responseText: 'Authentication failed.',
+        }),
+      );
+      const error = await service.testConnection(1, testDto).catch((value) => value);
+      expect(error.message).toContain('IMAP (imap.hostinger.com:993): Falha de autenticação');
+    });
+
+    it('reconhece senha errada no SMTP (EAUTH do nodemailer)', async () => {
+      smtp.verify.mockRejectedValue(
+        Object.assign(new Error('Invalid login: 535 5.7.8 Error'), { code: 'EAUTH' }),
+      );
+      const error = await service.testConnection(1, testDto).catch((value) => value);
+      expect(error.message).toContain('SMTP (smtp.hostinger.com:465): Falha de autenticação');
+    });
+
     it('indica falha de SMTP depois de IMAP aprovado', async () => {
       smtp.verify.mockRejectedValue(new Error('connect ETIMEDOUT'));
       const error = await service.testConnection(1, testDto).catch((value) => value);
