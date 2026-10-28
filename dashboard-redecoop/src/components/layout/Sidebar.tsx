@@ -4,6 +4,7 @@ import { ChevronDown } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePendingRequests } from '@/contexts/PendingRequestsContext'
 import { useSocket } from '@/contexts/SocketContext'
+import { useMailboxUnread } from '@/contexts/MailboxUnreadContext'
 import { NotifyBadge } from '@/components/ui/NotifyBadge'
 import { getNavigation, isDivider, type NavItem } from '@/config/navigation'
 
@@ -17,6 +18,7 @@ export function Sidebar({ open, onClose, onOpenNotifications }: SidebarProps) {
   const { user } = useAuth()
   const { count: pendingRequests } = usePendingRequests()
   const { unreadCount } = useSocket()
+  const { count: mailboxUnread } = useMailboxUnread()
   const location = useLocation()
   const [expandedMenus, setExpandedMenus] = useState<string[]>([])
 
@@ -120,6 +122,7 @@ export function Sidebar({ open, onClose, onOpenNotifications }: SidebarProps) {
         {item.url.includes('visitantes-e-solicitacoes') && pendingRequests > 0 && (
           <NotifyBadge count={pendingRequests} />
         )}
+        {item.badge === 'mailbox' && <NotifyBadge count={mailboxUnread} label="E-mails não lidos" />}
       </Link>
     )
   }

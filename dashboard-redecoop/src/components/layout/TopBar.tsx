@@ -1,5 +1,8 @@
-import { Bell, Menu } from 'lucide-react'
+import { Bell, Mail, Menu } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { NotifyBadge } from '@/components/ui/NotifyBadge'
+import { useAuth } from '@/contexts/AuthContext'
+import { useMailboxUnread } from '@/contexts/MailboxUnreadContext'
 import { UserMenu } from './UserMenu'
 
 interface TopBarProps {
@@ -13,6 +16,9 @@ export function TopBar({
   onOpenNotifications,
   unreadCount = 0,
 }: TopBarProps) {
+  const { isAdmin } = useAuth()
+  const { count: mailboxUnread } = useMailboxUnread()
+
   return (
     <header className="dashboard-topbar">
       <button
@@ -27,6 +33,16 @@ export function TopBar({
       <div className="hidden flex-1 lg:block" />
 
       <div className="flex items-center gap-2">
+        {isAdmin && (
+          <Link
+            to="/admin/email"
+            className="topbar-icon-btn topbar-icon-btn--notify"
+            aria-label={mailboxUnread > 0 ? `E-mail, ${mailboxUnread} não lidos` : 'E-mail'}
+          >
+            <Mail size={18} />
+            <NotifyBadge count={mailboxUnread} variant="floating" label="E-mails não lidos" />
+          </Link>
+        )}
         <button
           type="button"
           onClick={onOpenNotifications}

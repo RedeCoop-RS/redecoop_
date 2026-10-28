@@ -2,6 +2,7 @@
 @import "./styles/dashboard.css";
 @import "./styles/mobile.css";
 @import "./styles/site-analytics.css";
+@import "./styles/mailbox.css";
 
 @theme {
   --color-green: #009640;
