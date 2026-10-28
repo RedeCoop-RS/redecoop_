@@ -62,7 +62,7 @@ O módulo fica em `/admin/blog` e só responde para o papel `ADMIN`. O navegador
 | `GHOST_ADMIN_URL` | Origem do Ghost, sem `/ghost` no final. Ex.: `https://blog.seudominio.com`. |
 | `GHOST_ADMIN_API_KEY` | Admin API key no formato `id:secret`, da Custom Integration. Não é a Content API key. |
 | `GHOST_ENCRYPTION_KEY` | Chave para gravar a API key no painel. Mínimo de 16 caracteres. Se vazia, usa `MAILBOX_ENCRYPTION_KEY`. |
-| `GHOST_API_VERSION` | Cabeçalho `Accept-Version`. Padrão `v5.0`. |
+| `GHOST_API_VERSION` | Cabeçalho `Accept-Version`. Padrão `v6.0` (Ghost 5 continua aceitando). |
 | `GHOST_TIMEOUT_MS` | Tempo limite de cada chamada ao Ghost. Padrão 20000. |
 
 #### Como gerar a Admin API key

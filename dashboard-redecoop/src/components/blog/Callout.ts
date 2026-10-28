@@ -15,7 +15,10 @@ export const Callout = Node.create({
   defining: true,
 
   addAttributes() {
-    return { emoji: { default: '💡' } }
+    return {
+      emoji: { default: '💡' },
+      background: { default: 'green' },
+    }
   },
 
   parseHTML() {
@@ -25,7 +28,13 @@ export const Callout = Node.create({
         contentElement: 'div.kg-callout-text',
         getAttrs: (element) => {
           if (!(element instanceof HTMLElement)) return false
-          return { emoji: element.querySelector('.kg-callout-emoji')?.textContent?.trim() || '💡' }
+          const tone = Array.from(element.classList)
+            .find((name) => name.startsWith('kg-callout-card-') && name !== 'kg-callout-card')
+            ?.replace('kg-callout-card-', '')
+          return {
+            emoji: element.querySelector('.kg-callout-emoji')?.textContent?.trim() || '💡',
+            background: tone || 'green',
+          }
         },
       },
     ]
@@ -33,11 +42,13 @@ export const Callout = Node.create({
 
   renderHTML({ HTMLAttributes }) {
     const emoji = String(HTMLAttributes.emoji || '💡')
+    const background = String(HTMLAttributes.background || 'green')
     const rest = { ...HTMLAttributes }
     delete rest.emoji
+    delete rest.background
     return [
       'div',
-      mergeAttributes(rest, { class: 'kg-callout-card' }),
+      mergeAttributes(rest, { class: `kg-card kg-callout-card kg-callout-card-${background}` }),
       ['div', { class: 'kg-callout-emoji' }, emoji],
       ['div', { class: 'kg-callout-text' }, 0],
     ]

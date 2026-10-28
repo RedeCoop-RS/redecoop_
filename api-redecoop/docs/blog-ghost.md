@@ -11,7 +11,7 @@ Cooperativa, motorista e visitante recebem 403. Sem sessão, a API responde 401.
 | `GHOST_ADMIN_URL` | Para usar o Ghost sem preencher o painel | Origem do site, por exemplo `https://blog.redecooprs.com.br`. Sem barra no final e sem `/ghost`. |
 | `GHOST_ADMIN_API_KEY` | Idem | Chave `id:secret` da Custom Integration. |
 | `GHOST_ENCRYPTION_KEY` | Só para gravar a chave pelo painel | Segredo AES-256-GCM, mínimo de 16 caracteres. Se omitida, vale `MAILBOX_ENCRYPTION_KEY`. |
-| `GHOST_API_VERSION` | Não | `Accept-Version` enviado ao Ghost. Padrão `v5.0`. |
+| `GHOST_API_VERSION` | Não | `Accept-Version` enviado ao Ghost. Padrão `v6.0` (o Ghost 5 ainda aceita). |
 | `GHOST_TIMEOUT_MS` | Não | Timeout de cada request. Padrão `20000`. |
 
 A URL salva no painel tem prioridade sobre `GHOST_ADMIN_URL`. A chave salva (cifrada) tem prioridade sobre `GHOST_ADMIN_API_KEY`. Dá para combinar: URL no banco e chave no ambiente, ou o contrário.
@@ -48,6 +48,8 @@ Se a chave vazar, volte na mesma tela e gere outra. Atualize a variável ou o ca
 - Resumo, slug, visibilidade (público, membros, pagantes), destaque, data, imagem de destaque.
 - SEO: meta title, meta description, URL canônica, Open Graph e Twitter.
 - Editor com títulos, listas, citação, código, link, imagem (enviada ao Ghost), vídeo (YouTube/Vimeo), callout, tabela, negrito, itálico, sublinhado e riscado.
+- O Ghost 5 e 6 guardam o corpo em **Lexical**. O painel só manda HTML (`source=html`) quando o texto do editor muda; salvar título, SEO, tags ou status não reconverte o post e não perde callouts, galerias, bookmarks e outros cartões.
+- Tags e autores são listados página a página (Ghost 6 removeu `?limit=all`, teto 100).
 - Rascunho com autosave. Contagem de palavras e tempo de leitura. Pré-visualização local do HTML.
 - O painel é em português e a barra de ações permanece acessível no celular.
 
@@ -63,4 +65,4 @@ Um 401 do Ghost (chave recusada) vira erro 400 da nossa API. Assim o painel não
 cd api-redecoop && npx jest src/blog
 ```
 
-O workflow `.github/workflows/blog.yml` sobe `ghost:5-alpine` com SQLite (`NODE_ENV=development`, exigência do Ghost para não usar MySQL), desliga a verificação de dispositivo por e-mail (`security__staffDeviceVerification=false`, senão o login do teste quebra sem SMTP) e roda o Playwright em `e2e/tests/blog`. O script `e2e/scripts/ghost-setup.mjs` completa o setup do owner e cria a Custom Integration. A suíte de e-mail ignora esses testes; a do blog não sobe o servidor de e-mail.
+O workflow `.github/workflows/blog.yml` sobe `ghost:5-alpine` e `ghost:6-alpine` (matriz) com SQLite (`NODE_ENV=development`, exigência do Ghost para não usar MySQL), desliga a verificação de dispositivo por e-mail (`security__staffDeviceVerification=false`, senão o login do teste quebra sem SMTP) e roda o Playwright em `e2e/tests/blog`. O script `e2e/scripts/ghost-setup.mjs` completa o setup do owner e cria a Custom Integration. A suíte inclui um post Lexical rico (callout, código, bookmark, HTML, markdown) e confirma que salvar só o título não destrói esses cartões. A suíte de e-mail ignora esses testes; a do blog não sobe o servidor de e-mail.

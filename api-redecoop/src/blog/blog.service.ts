@@ -370,7 +370,7 @@ export class BlogService {
     const title = /cópia/i.test(source.title) ? source.title : `${source.title} (cópia)`;
     return this.ghost.create(cfg, resource, {
       title,
-      html: source.html,
+      ...(source.lexical ? { lexical: source.lexical } : { html: source.html }),
       status: 'draft',
       customExcerpt: source.customExcerpt || null,
       visibility: (source.visibility as BlogWriteInput['visibility']) || 'public',

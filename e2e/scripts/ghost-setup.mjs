@@ -6,10 +6,11 @@ import { appendFileSync, writeFileSync } from 'fs'
 const base = (process.env.GHOST_ADMIN_URL || 'http://127.0.0.1:2368').replace(/\/+$/, '')
 const email = process.env.GHOST_E2E_EMAIL || 'ghost-owner@redecoop.test'
 const password = process.env.GHOST_E2E_PASSWORD || 'RedeCoop-E2E-Blog-2026'
+const version = process.env.GHOST_API_VERSION || 'v6.0'
 const headers = {
   'content-type': 'application/json',
   accept: 'application/json',
-  'accept-version': 'v5.0',
+  'accept-version': version,
   origin: base,
 }
 
@@ -33,7 +34,7 @@ async function waitReady() {
   let last = 'sem resposta'
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(`${base}/ghost/api/admin/site/`, { headers: { 'accept-version': 'v5.0' } })
+      const response = await fetch(`${base}/ghost/api/admin/site/`, { headers: { 'accept-version': version } })
       if (response.status < 500) return
       last = `HTTP ${response.status}`
     } catch (error) {

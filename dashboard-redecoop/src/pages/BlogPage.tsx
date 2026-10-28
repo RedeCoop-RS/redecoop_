@@ -99,10 +99,15 @@ export function BlogPage() {
                 value={draft.title}
                 onChange={(event) => blog.updateDraft({ title: event.target.value })}
               />
+              {draft.id && !draft.htmlDirty && (
+                <p className="blog-hint blog-lexical-note">
+                  O Ghost guarda o texto em Lexical. Enquanto o corpo não for editado, callouts, galerias e outros cartões originais permanecem intactos.
+                </p>
+              )}
               <BlogEditor
                 documentKey={draft.localKey}
                 html={draft.html}
-                onChange={(html) => blog.updateDraft({ html })}
+                onChange={(html) => blog.updateDraft({ html, htmlDirty: true })}
                 onStats={(wordCount) => blog.setDraft((current) => current ? { ...current, wordCount, readingTime: blog.readingMinutes(wordCount) } : current)}
                 onUpload={blog.upload}
               />

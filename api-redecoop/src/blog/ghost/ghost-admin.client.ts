@@ -18,8 +18,11 @@ import {
 
 const PLURAL: Record<BlogResource, 'posts' | 'pages'> = { post: 'posts', page: 'pages' };
 
-function version(): string {
-  return process.env.GHOST_API_VERSION?.trim() || 'v5.0';
+const PAGE_SIZE = 100;
+const MAX_PAGES = 50;
+
+export function ghostApiVersion(): string {
+  return process.env.GHOST_API_VERSION?.trim() || 'v6.0';
 }
 
 function timeoutMs(): number {
@@ -125,7 +128,7 @@ export class GhostAdminClient {
     }
     const headers: Record<string, string> = {
       Authorization: `Ghost ${this.token(cfg.key)}`,
-      'Accept-Version': version(),
+      'Accept-Version': ghostApiVersion(),
       Accept: 'application/json',
     };
     let body: unknown;
@@ -199,7 +202,7 @@ export class GhostAdminClient {
 
   async read(cfg: GhostConfig, resource: BlogResource, id: string): Promise<BlogPost> {
     const data = await this.call<any>(cfg, 'GET', `${this.collection(resource)}/${id}/`, {
-      query: { formats: 'html,plaintext', include: 'tags,authors' },
+      query: { formats: 'html,plaintext,lexical', include: 'tags,authors' },
     });
     return this.one(data, resource);
   }
@@ -234,10 +237,7 @@ export class GhostAdminClient {
   }
 
   async tags(cfg: GhostConfig): Promise<BlogTag[]> {
-    const data = await this.call<any>(cfg, 'GET', 'tags/', {
-      query: { limit: 'all' },
-    });
-    return (data?.tags || []).map(mapTag);
+    return this.collect(cfg, 'tags/', 'tags', mapTag);
   }
 
   async createTag(
@@ -282,8 +282,30 @@ export class GhostAdminClient {
   }
 
   async users(cfg: GhostConfig): Promise<BlogAuthor[]> {
-    const data = await this.call<any>(cfg, 'GET', 'users/', { query: { limit: 'all', include: 'roles' } });
-    return (data?.users || []).map(mapAuthor);
+    return this.collect(cfg, 'users/', 'users', mapAuthor, { include: 'roles' });
+  }
+
+  /** Ghost 6 removeu `limit=all` (teto 100). Pagina até esgotar. */
+  private async collect<T>(
+    cfg: GhostConfig,
+    path: string,
+    key: string,
+    map: (raw: any) => T,
+    extra?: Record<string, string | undefined>,
+  ): Promise<T[]> {
+    const items: T[] = [];
+    let page = 1;
+    while (page <= MAX_PAGES) {
+      const data = await this.call<any>(cfg, 'GET', path, {
+        query: { limit: String(PAGE_SIZE), page: String(page), ...extra },
+      });
+      const batch = Array.isArray(data?.[key]) ? data[key].map(map) : [];
+      items.push(...batch);
+      const next = Number(data?.meta?.pagination?.next);
+      if (!batch.length || !Number.isFinite(next) || next <= page) break;
+      page = next;
+    }
+    return items;
   }
 
   async uploadImage(

@@ -30,6 +30,8 @@ export interface BlogPost {
   slug: string;
   html: string;
   plaintext: string;
+  lexical: string | null;
+  mobiledoc: string | null;
   excerpt: string;
   customExcerpt: string;
   featureImage: string | null;
@@ -80,6 +82,8 @@ export interface GhostSiteInfo {
 export interface BlogWriteInput {
   title?: string;
   html?: string;
+  lexical?: string | null;
+  mobiledoc?: string | null;
   slug?: string | null;
   customExcerpt?: string | null;
   status?: 'draft' | 'published' | 'scheduled';

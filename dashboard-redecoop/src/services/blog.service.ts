@@ -137,6 +137,7 @@ export interface BlogDraft extends BlogWrite {
   wordCount: number
   readingTime: number
   dirty: boolean
+  htmlDirty: boolean
   conflict: boolean
 }
 
@@ -172,6 +173,7 @@ export function emptyDraft(resource: BlogResource, authorId?: string): BlogDraft
     wordCount: 0,
     readingTime: 0,
     dirty: false,
+    htmlDirty: false,
     conflict: false,
   }
 }
@@ -209,6 +211,7 @@ export function draftFromPost(post: BlogPost): BlogDraft {
     wordCount: post.wordCount,
     readingTime: post.readingTime,
     dirty: false,
+    htmlDirty: false,
     conflict: false,
   }
 }
@@ -217,7 +220,7 @@ export function toWrite(draft: BlogDraft): BlogWrite {
   return {
     resource: draft.resource,
     title: draft.title.trim(),
-    html: draft.html,
+    ...(draft.htmlDirty ? { html: draft.html } : {}),
     slug: draft.slug.trim() || undefined,
     customExcerpt: draft.customExcerpt,
     status: draft.status,

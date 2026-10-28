@@ -24,6 +24,8 @@ function sample(extra: Record<string, unknown> = {}) {
     slug: 'safra',
     html: '<p>Texto</p>',
     plaintext: 'Texto',
+    lexical: null,
+    mobiledoc: null,
     excerpt: '',
     customExcerpt: '',
     featureImage: null,
@@ -205,15 +207,18 @@ describe('BlogService', () => {
 
   it('duplica manualmente quando o Ghost não tem /copy/', async () => {
     ghost.copy.mockRejectedValue(new GhostApiError('missing', 404));
-    ghost.read.mockResolvedValue(sample({ html: '<p>Original</p>', title: 'Safra' }));
+    ghost.read.mockResolvedValue(
+      sample({ html: '<p>Original</p>', lexical: '{"root":{}}', title: 'Safra' }),
+    );
     ghost.create.mockResolvedValue(sample({ title: 'Safra (cópia)', status: 'draft' }));
     const copy = await service.duplicate(ID, 'post');
     expect(copy.title).toContain('cópia');
     expect(ghost.create).toHaveBeenCalledWith(
       expect.anything(),
       'post',
-      expect.objectContaining({ status: 'draft', title: 'Safra (cópia)', html: '<p>Original</p>' }),
+      expect.objectContaining({ status: 'draft', title: 'Safra (cópia)', lexical: '{"root":{}}' }),
     );
+    expect(ghost.create.mock.calls[0][2].html).toBeUndefined();
   });
 
   it('ação em massa continua depois de uma falha', async () => {

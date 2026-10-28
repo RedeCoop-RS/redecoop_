@@ -50,10 +50,14 @@ jobs:
         run: npm run build
 
   e2e:
-    name: E2E (Ghost sqlite)
+    name: E2E (Ghost ${{ matrix.ghost }})
     runs-on: ubuntu-24.04
     needs: unit
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        ghost: [5-alpine, 6-alpine]
     services:
       mariadb:
         image: mariadb:10.11
@@ -80,6 +84,7 @@ jobs:
       DASHBOARD_URL: http://localhost:5174
       WEBSITE_URL: http://localhost:5173
       GHOST_ADMIN_URL: http://127.0.0.1:2368
+      GHOST_API_VERSION: v6.0
       GHOST_ENCRYPTION_KEY: chave-e2e-somente-ci-redecoop
       MAILBOX_ENCRYPTION_KEY: chave-e2e-somente-ci-redecoop
       E2E_SUITE: blog
@@ -95,7 +100,7 @@ jobs:
             api-redecoop/package-lock.json
             dashboard-redecoop/package-lock.json
             e2e/package-lock.json
-      - name: Ghost 5 (sqlite, modo development)
+      - name: Ghost ${{ matrix.ghost }} (sqlite, modo development)
         run: |
           docker run -d --name ghost-e2e \
             -e NODE_ENV=development \
@@ -105,7 +110,7 @@ jobs:
             -e security__staffDeviceVerification=false \
             -e mail__transport=Direct \
             -p 2368:2368 \
-            ghost:5-alpine
+            ghost:${{ matrix.ghost }}
           node e2e/scripts/ghost-setup.mjs || { docker logs ghost-e2e || true; exit 1; }
       - name: Dependências
         run: |
@@ -142,7 +147,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: e2e-blog-relatorio
+          name: e2e-blog-relatorio-${{ matrix.ghost }}
           path: |
             e2e/playwright-report
             e2e/test-results

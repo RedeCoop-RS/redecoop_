@@ -35,6 +35,15 @@ function client(handler: (request: GhostHttpRequest) => GhostHttpResult | Promis
 }
 
 describe('GhostAdminClient', () => {
+  const originalVersion = process.env.GHOST_API_VERSION;
+  beforeEach(() => {
+    delete process.env.GHOST_API_VERSION;
+  });
+  afterEach(() => {
+    if (originalVersion === undefined) delete process.env.GHOST_API_VERSION;
+    else process.env.GHOST_API_VERSION = originalVersion;
+  });
+
   it('cria post com JWT, Accept-Version e source=html sem script', async () => {
     const { api, calls } = client(() => ({ status: 201, data: { posts: [raw()] } }));
     const post = await api.create(cfg, 'post', { title: 'Safra', html: '<p>Oi</p><script>x</script>' });
@@ -42,7 +51,7 @@ describe('GhostAdminClient', () => {
     expect(calls[0].url).toContain('http://ghost.local/ghost/api/admin/posts/');
     expect(calls[0].url).toContain('source=html');
     expect(calls[0].headers.Authorization).toMatch(/^Ghost [\w-]+\.[\w-]+\.[\w-]+$/);
-    expect(calls[0].headers['Accept-Version']).toBe('v5.0');
+    expect(calls[0].headers['Accept-Version']).toBe('v6.0');
     expect((calls[0].body as any).posts[0].html).toBe('<p>Oi</p>');
     expect(post.updatedAt).toBe('2024-06-01T12:00:00.000Z');
     expect(post.wordCount).toBe(3);
@@ -95,6 +104,65 @@ describe('GhostAdminClient', () => {
     expect(calls[0].body).toBeInstanceOf(FormData);
     expect(calls[0].headers['Content-Type']).toBeUndefined();
     expect(image.url).toBe('http://ghost.local/content/images/foto.png');
+  });
+
+  it('lê o post pedindo html e lexical juntos', async () => {
+    const { api, calls } = client(() => ({ status: 200, data: { posts: [raw({ lexical: '{"root":{}}' })] } }));
+    const post = await api.read(cfg, 'post', id);
+    expect(decodeURIComponent(calls[0].url)).toContain('formats=html,plaintext,lexical');
+    expect(post.lexical).toContain('root');
+  });
+
+  it('atualiza metadados sem source=html para não converter o Lexical', async () => {
+    const { api, calls } = client(() => ({ status: 200, data: { posts: [raw()] } }));
+    await api.update(cfg, 'post', id, { title: 'Safra 2', updatedAt: '2024-06-01T12:00:00.000Z' });
+    expect(calls[0].url).not.toContain('source=html');
+    expect((calls[0].body as any).posts[0].html).toBeUndefined();
+    expect((calls[0].body as any).posts[0].title).toBe('Safra 2');
+  });
+
+  it('pagina tags e usuários no lugar de limit=all', async () => {
+    const { api, calls } = client((request) => {
+      const url = new URL(request.url);
+      const page = Number(url.searchParams.get('page') || '1');
+      const limit = url.searchParams.get('limit');
+      expect(limit).toBe('100');
+      expect(url.searchParams.get('limit')).not.toBe('all');
+      if (url.pathname.includes('/tags/')) {
+        const tags = page === 1
+          ? [{ id: '1', name: 'News', slug: 'news', updated_at: '2024-06-01T12:00:00.000Z' }]
+          : [{ id: '2', name: 'intercooperação', slug: 'intercooperacao', updated_at: '2024-06-01T12:00:00.000Z' }];
+        return {
+          status: 200,
+          data: { tags, meta: { pagination: { page, limit: 100, pages: 2, total: 2, next: page === 1 ? 2 : null } } },
+        };
+      }
+      return {
+        status: 200,
+        data: {
+          users: [{ id: 'u1', name: 'Ana', slug: 'ana' }],
+          meta: { pagination: { page: 1, limit: 100, pages: 1, total: 1, next: null } },
+        },
+      };
+    });
+    const tags = await api.tags(cfg);
+    expect(tags.map((tag) => tag.slug)).toEqual(['news', 'intercooperacao']);
+    expect(calls.filter((call) => call.url.includes('/tags/'))).toHaveLength(2);
+    const users = await api.users(cfg);
+    expect(users[0].name).toBe('Ana');
+  });
+
+  it('respeita GHOST_API_VERSION', async () => {
+    const previous = process.env.GHOST_API_VERSION;
+    process.env.GHOST_API_VERSION = 'v5.0';
+    try {
+      const { api, calls } = client(() => ({ status: 200, data: { site: { title: 'X' } } }));
+      await api.site(cfg);
+      expect(calls[0].headers['Accept-Version']).toBe('v5.0');
+    } finally {
+      if (previous === undefined) delete process.env.GHOST_API_VERSION;
+      else process.env.GHOST_API_VERSION = previous;
+    }
   });
 
   it('lê o site sem embrulhar em array', async () => {

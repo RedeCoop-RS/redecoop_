@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
@@ -13,6 +13,30 @@ import TableHeader from '@tiptap/extension-table-header'
 import Youtube from '@tiptap/extension-youtube'
 import CharacterCount from '@tiptap/extension-character-count'
 import type { Editor } from '@tiptap/core'
+import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  Bold,
+  Code,
+  Heading2,
+  Heading3,
+  Heading4,
+  Highlighter,
+  Image as ImageIcon,
+  Italic,
+  Link2,
+  List,
+  ListOrdered,
+  Minus,
+  Quote,
+  Redo2,
+  Strikethrough,
+  Table as TableIcon,
+  Underline as UnderlineIcon,
+  Undo2,
+  Video,
+} from 'lucide-react'
 import { Callout, Embed } from './Callout'
 
 interface BlogEditorProps {
@@ -22,6 +46,8 @@ interface BlogEditorProps {
   onStats: (words: number) => void
   onUpload: (file: File) => Promise<string>
 }
+
+const CALLOUT_EMOJI = ['💡', '⚠️', '✅', '📌', '💚', '📣']
 
 function wordsOf(editor: Editor) {
   const storage = editor.storage as { characterCount?: { words: () => number } }
@@ -46,6 +72,26 @@ function vimeoId(url: string) {
   return match?.[1] || ''
 }
 
+function ToolButton({
+  pressed,
+  label,
+  title,
+  onClick,
+  children,
+}: {
+  pressed?: boolean
+  label: string
+  title: string
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button type="button" aria-label={label} title={title} aria-pressed={pressed} onClick={onClick}>
+      <span aria-hidden="true">{children}</span>
+    </button>
+  )
+}
+
 export function BlogEditor({ documentKey, html, onChange, onStats, onUpload }: BlogEditorProps) {
   const touched = useRef(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -68,8 +114,8 @@ export function BlogEditor({ documentKey, html, onChange, onStats, onUpload }: B
       StarterKit.configure({ heading: { levels: [2, 3, 4] } }),
       Underline,
       Link.configure({ openOnClick: false, autolink: true, defaultProtocol: 'https' }),
-      Image,
-      Placeholder.configure({ placeholder: 'Escreva o conteúdo…' }),
+      Image.configure({ HTMLAttributes: { class: 'blog-editor__image' } }),
+      Placeholder.configure({ placeholder: 'Escreva o conteúdo. Cole imagens, use a barra acima ou atalhos do teclado.' }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Table.configure({ resizable: false }),
       TableRow,
@@ -150,36 +196,115 @@ export function BlogEditor({ documentKey, html, onChange, onStats, onUpload }: B
     setEmbedOpen(false)
   }
 
-  const active = (name: string, attrs?: Record<string, unknown>) => editor.isActive(name, attrs)
+  function cycleCalloutEmoji() {
+    const current = String(editor.getAttributes('callout').emoji || '💡')
+    const next = CALLOUT_EMOJI[(CALLOUT_EMOJI.indexOf(current) + 1) % CALLOUT_EMOJI.length]
+    mark(() => editor.chain().focus().updateAttributes('callout', { emoji: next }).run())
+  }
+
+  const active = (name: string | Record<string, unknown>, attrs?: Record<string, unknown>) =>
+    typeof name === 'string' ? editor.isActive(name, attrs) : editor.isActive(name)
+  const inTable = editor.isActive('table')
+  const inCallout = editor.isActive('callout')
 
   return (
     <div className="blog-editor">
       <div className="blog-toolbar" role="toolbar" aria-label="Formatação">
-        <button type="button" aria-pressed={active('bold')} onClick={() => mark(() => editor.chain().focus().toggleBold().run())}>N</button>
-        <button type="button" aria-pressed={active('italic')} onClick={() => mark(() => editor.chain().focus().toggleItalic().run())}><em>I</em></button>
-        <button type="button" aria-pressed={active('underline')} onClick={() => mark(() => editor.chain().focus().toggleUnderline().run())}><u>S</u></button>
-        <button type="button" aria-pressed={active('strike')} onClick={() => mark(() => editor.chain().focus().toggleStrike().run())}><s>T</s></button>
-        <span className="blog-toolbar__gap" />
-        <button type="button" aria-pressed={active('heading', { level: 2 })} onClick={() => mark(() => editor.chain().focus().toggleHeading({ level: 2 }).run())}>H2</button>
-        <button type="button" aria-pressed={active('heading', { level: 3 })} onClick={() => mark(() => editor.chain().focus().toggleHeading({ level: 3 }).run())}>H3</button>
-        <button type="button" aria-pressed={active('heading', { level: 4 })} onClick={() => mark(() => editor.chain().focus().toggleHeading({ level: 4 }).run())}>H4</button>
-        <span className="blog-toolbar__gap" />
-        <button type="button" aria-pressed={active('bulletList')} onClick={() => mark(() => editor.chain().focus().toggleBulletList().run())}>Lista</button>
-        <button type="button" aria-pressed={active('orderedList')} onClick={() => mark(() => editor.chain().focus().toggleOrderedList().run())}>1.</button>
-        <button type="button" aria-pressed={active('blockquote')} onClick={() => mark(() => editor.chain().focus().toggleBlockquote().run())}>Citação</button>
-        <button type="button" aria-pressed={active('codeBlock')} onClick={() => mark(() => editor.chain().focus().toggleCodeBlock().run())}>Código</button>
-        <button type="button" onClick={() => mark(() => editor.chain().focus().setHorizontalRule().run())}>Linha</button>
-        <span className="blog-toolbar__gap" />
-        <button type="button" aria-pressed={active('link')} onClick={() => { setLinkUrl(String(editor.getAttributes('link').href || 'https://')); setLinkOpen(true) }}>Link</button>
-        <button type="button" onClick={() => fileRef.current?.click()}>Imagem</button>
-        <button type="button" onClick={() => setEmbedOpen(true)}>Vídeo</button>
-        <button type="button" aria-pressed={active('callout')} onClick={() => mark(() => editor.chain().focus().setCallout().run())}>Destaque</button>
-        <button type="button" onClick={() => mark(() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run())}>Tabela</button>
-        <button type="button" onClick={() => mark(() => editor.chain().focus().setTextAlign('left').run())}>Esq.</button>
-        <button type="button" onClick={() => mark(() => editor.chain().focus().setTextAlign('center').run())}>Centro</button>
-        <button type="button" onClick={() => mark(() => editor.chain().focus().undo().run())}>Desfazer</button>
-        <button type="button" onClick={() => mark(() => editor.chain().focus().redo().run())}>Refazer</button>
+        <span className="blog-toolbar__group">
+          <ToolButton pressed={active('bold')} label="N" title="Negrito (Ctrl+B)" onClick={() => mark(() => editor.chain().focus().toggleBold().run())}>
+            <Bold size={16} />
+          </ToolButton>
+          <ToolButton pressed={active('italic')} label="I" title="Itálico (Ctrl+I)" onClick={() => mark(() => editor.chain().focus().toggleItalic().run())}>
+            <Italic size={16} />
+          </ToolButton>
+          <ToolButton pressed={active('underline')} label="S" title="Sublinhado (Ctrl+U)" onClick={() => mark(() => editor.chain().focus().toggleUnderline().run())}>
+            <UnderlineIcon size={16} />
+          </ToolButton>
+          <ToolButton pressed={active('strike')} label="T" title="Riscado" onClick={() => mark(() => editor.chain().focus().toggleStrike().run())}>
+            <Strikethrough size={16} />
+          </ToolButton>
+        </span>
+        <span className="blog-toolbar__group">
+          <ToolButton pressed={active('heading', { level: 2 })} label="H2" title="Título 2" onClick={() => mark(() => editor.chain().focus().toggleHeading({ level: 2 }).run())}>
+            <Heading2 size={16} />
+          </ToolButton>
+          <ToolButton pressed={active('heading', { level: 3 })} label="H3" title="Título 3" onClick={() => mark(() => editor.chain().focus().toggleHeading({ level: 3 }).run())}>
+            <Heading3 size={16} />
+          </ToolButton>
+          <ToolButton pressed={active('heading', { level: 4 })} label="H4" title="Título 4" onClick={() => mark(() => editor.chain().focus().toggleHeading({ level: 4 }).run())}>
+            <Heading4 size={16} />
+          </ToolButton>
+        </span>
+        <span className="blog-toolbar__group">
+          <ToolButton pressed={active('bulletList')} label="Lista" title="Lista com marcadores" onClick={() => mark(() => editor.chain().focus().toggleBulletList().run())}>
+            <List size={16} />
+          </ToolButton>
+          <ToolButton pressed={active('orderedList')} label="1." title="Lista numerada" onClick={() => mark(() => editor.chain().focus().toggleOrderedList().run())}>
+            <ListOrdered size={16} />
+          </ToolButton>
+          <ToolButton pressed={active('blockquote')} label="Citação" title="Citação" onClick={() => mark(() => editor.chain().focus().toggleBlockquote().run())}>
+            <Quote size={16} />
+          </ToolButton>
+          <ToolButton pressed={active('codeBlock')} label="Código" title="Bloco de código" onClick={() => mark(() => editor.chain().focus().toggleCodeBlock().run())}>
+            <Code size={16} />
+          </ToolButton>
+          <ToolButton label="Linha" title="Linha horizontal" onClick={() => mark(() => editor.chain().focus().setHorizontalRule().run())}>
+            <Minus size={16} />
+          </ToolButton>
+        </span>
+        <span className="blog-toolbar__group">
+          <ToolButton pressed={active('link')} label="Link" title="Inserir ou editar link" onClick={() => { setLinkUrl(String(editor.getAttributes('link').href || 'https://')); setLinkOpen(true) }}>
+            <Link2 size={16} />
+          </ToolButton>
+          <ToolButton label="Imagem" title="Enviar imagem para o Ghost" onClick={() => fileRef.current?.click()}>
+            <ImageIcon size={16} />
+          </ToolButton>
+          <ToolButton label="Vídeo" title="YouTube, Vimeo ou outro endereço" onClick={() => setEmbedOpen(true)}>
+            <Video size={16} />
+          </ToolButton>
+          <ToolButton pressed={inCallout} label="Destaque" title="Caixa de destaque" onClick={() => mark(() => editor.chain().focus().setCallout().run())}>
+            <Highlighter size={16} />
+          </ToolButton>
+          <ToolButton label="Tabela" title="Inserir tabela" onClick={() => mark(() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run())}>
+            <TableIcon size={16} />
+          </ToolButton>
+        </span>
+        <span className="blog-toolbar__group">
+          <ToolButton pressed={active({ textAlign: 'left' })} label="Esq." title="Alinhar à esquerda" onClick={() => mark(() => editor.chain().focus().setTextAlign('left').run())}>
+            <AlignLeft size={16} />
+          </ToolButton>
+          <ToolButton pressed={active({ textAlign: 'center' })} label="Centro" title="Centralizar" onClick={() => mark(() => editor.chain().focus().setTextAlign('center').run())}>
+            <AlignCenter size={16} />
+          </ToolButton>
+          <ToolButton pressed={active({ textAlign: 'right' })} label="Dir." title="Alinhar à direita" onClick={() => mark(() => editor.chain().focus().setTextAlign('right').run())}>
+            <AlignRight size={16} />
+          </ToolButton>
+        </span>
+        <span className="blog-toolbar__group">
+          <ToolButton label="Desfazer" title="Desfazer (Ctrl+Z)" onClick={() => mark(() => editor.chain().focus().undo().run())}>
+            <Undo2 size={16} />
+          </ToolButton>
+          <ToolButton label="Refazer" title="Refazer (Ctrl+Shift+Z)" onClick={() => mark(() => editor.chain().focus().redo().run())}>
+            <Redo2 size={16} />
+          </ToolButton>
+        </span>
       </div>
+      {inTable && (
+        <div className="blog-toolbar blog-toolbar--sub" role="toolbar" aria-label="Tabela">
+          <button type="button" onClick={() => mark(() => editor.chain().focus().addColumnBefore().run())}>Coluna à esquerda</button>
+          <button type="button" onClick={() => mark(() => editor.chain().focus().addColumnAfter().run())}>Coluna à direita</button>
+          <button type="button" onClick={() => mark(() => editor.chain().focus().deleteColumn().run())}>Remover coluna</button>
+          <button type="button" onClick={() => mark(() => editor.chain().focus().addRowBefore().run())}>Linha acima</button>
+          <button type="button" onClick={() => mark(() => editor.chain().focus().addRowAfter().run())}>Linha abaixo</button>
+          <button type="button" onClick={() => mark(() => editor.chain().focus().deleteRow().run())}>Remover linha</button>
+          <button type="button" onClick={() => mark(() => editor.chain().focus().deleteTable().run())}>Remover tabela</button>
+        </div>
+      )}
+      {inCallout && (
+        <div className="blog-toolbar blog-toolbar--sub" role="toolbar" aria-label="Destaque">
+          <button type="button" onClick={cycleCalloutEmoji}>Emoji {String(editor.getAttributes('callout').emoji || '💡')}</button>
+        </div>
+      )}
       {linkOpen && (
         <form className="blog-pop" onSubmit={(event) => { event.preventDefault(); applyLink() }}>
           <label>
@@ -187,6 +312,7 @@ export function BlogEditor({ documentKey, html, onChange, onStats, onUpload }: B
             <input value={linkUrl} onChange={(event) => setLinkUrl(event.target.value)} aria-label="Endereço do link" />
           </label>
           <button type="submit">Aplicar link</button>
+          <button type="button" onClick={() => { mark(() => editor.chain().focus().unsetLink().run()); setLinkOpen(false) }}>Remover link</button>
           <button type="button" onClick={() => setLinkOpen(false)}>Cancelar</button>
         </form>
       )}
@@ -201,6 +327,7 @@ export function BlogEditor({ documentKey, html, onChange, onStats, onUpload }: B
         </form>
       )}
       <EditorContent editor={editor} />
+      <p className="blog-editor__hint">Atalhos: Ctrl+B negrito, Ctrl+I itálico, Ctrl+U sublinhado. Cole ou arraste imagens para enviá-las ao Ghost.</p>
       <input
         ref={fileRef}
         type="file"

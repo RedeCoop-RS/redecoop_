@@ -10,6 +10,13 @@ function nullable(value: unknown): string | null {
   return String(value);
 }
 
+function asStoredContent(value: unknown): string | null {
+  if (value == null || value === '') return null;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') return JSON.stringify(value);
+  return null;
+}
+
 export function mapTag(raw: any): BlogTag {
   return {
     id: text(raw?.id),
@@ -42,6 +49,8 @@ export function mapPost(raw: any, resource: BlogResource): BlogPost {
     slug: text(raw?.slug),
     html,
     plaintext,
+    lexical: asStoredContent(raw?.lexical),
+    mobiledoc: asStoredContent(raw?.mobiledoc),
     customExcerpt: text(raw?.custom_excerpt),
     excerpt: text(raw?.custom_excerpt || raw?.excerpt),
     featureImage: nullable(raw?.feature_image),
@@ -79,6 +88,8 @@ export function toGhostDocument(input: BlogWriteInput): Record<string, unknown> 
   const post: Record<string, unknown> = {};
   assign(post, 'title', input.title);
   if (input.html !== undefined) post.html = sanitizeBlogHtml(input.html);
+  if (input.lexical !== undefined) post.lexical = input.lexical;
+  if (input.mobiledoc !== undefined) post.mobiledoc = input.mobiledoc;
   if (input.slug) post.slug = input.slug.trim();
   assign(post, 'custom_excerpt', input.customExcerpt);
   assign(post, 'status', input.status);

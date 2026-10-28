@@ -141,6 +141,7 @@ export function useBlog() {
       publishedAt: replaceStatus ? post.publishedAt || '' : current.publishedAt,
       readingTime: post.readingTime || readingMinutes(current.wordCount),
       dirty: false,
+      htmlDirty: false,
       conflict: false,
     }
   }
@@ -160,6 +161,7 @@ export function useBlog() {
       const saved = current.id ? await blogService.update(current.id, body) : await blogService.create(body)
       const latest = draftRef.current && draftRef.current.localKey === current.localKey ? draftRef.current : current
       const changedWhileSaving = latest.html !== current.html || latest.title !== current.title
+      const htmlChangedWhileSaving = latest.html !== current.html
       const status = saved.status === 'published' || saved.status === 'scheduled' ? saved.status : 'draft'
       const merged: BlogDraft = {
         ...latest,
@@ -171,6 +173,7 @@ export function useBlog() {
         publishedAt: latest.publishedAt || saved.publishedAt || '',
         readingTime: saved.readingTime || readingMinutes(latest.wordCount),
         dirty: auto ? changedWhileSaving : false,
+        htmlDirty: auto ? Boolean(latest.htmlDirty && htmlChangedWhileSaving) : false,
         conflict: false,
       }
       setDraft(merged)
