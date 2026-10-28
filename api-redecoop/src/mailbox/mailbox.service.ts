@@ -1010,13 +1010,15 @@ export class MailboxService {
     if (remote.some((item) => item.path.toLowerCase() === path.toLowerCase())) {
       throw new BadRequestException('Já existe uma pasta com esse nome.');
     }
+    let created: { path: string; created: boolean };
     try {
-      await this.imap.createFolder(creds, path);
+      created = await this.imap.createFolder(creds, path);
     } catch (error) {
       throw this.fail(error, 'Não foi possível criar a pasta.', creds.password);
     }
+    if (!created.created) throw new BadRequestException('Já existe uma pasta com esse nome.');
     await this.refreshFolderList(account.id, creds);
-    return { ok: true, path };
+    return { ok: true, path: created.path };
   }
 
   async renameFolder(dto: RenameFolderDto) {

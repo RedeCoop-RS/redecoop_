@@ -1,0 +1,137 @@
+name: E-mail do super admin
+
+on:
+  pull_request:
+    paths:
+      - 'api-redecoop/**'
+      - 'dashboard-redecoop/**'
+      - 'e2e/**'
+      - '.github/workflows/mailbox.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'api-redecoop/**'
+      - 'dashboard-redecoop/**'
+      - 'e2e/**'
+      - '.github/workflows/mailbox.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: mailbox-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Testes unitários e build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            api-redecoop/package-lock.json
+            dashboard-redecoop/package-lock.json
+      - name: API — dependências
+        working-directory: api-redecoop
+        run: npm ci
+      - name: API — testes do e-mail
+        working-directory: api-redecoop
+        run: npx jest src/mailbox
+      - name: API — build
+        working-directory: api-redecoop
+        run: npm run build
+      - name: Painel — dependências
+        working-directory: dashboard-redecoop
+        run: npm ci
+      - name: Painel — typecheck e build
+        working-directory: dashboard-redecoop
+        run: npm run build
+
+  e2e:
+    name: E2E (Dovecot + Postfix locais)
+    runs-on: ubuntu-24.04
+    needs: unit
+    timeout-minutes: 40
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_DATABASE: redecoopapi
+          MARIADB_USER: redecoop
+          MARIADB_PASSWORD: redecoop123
+          MARIADB_ROOT_PASSWORD: root-e2e
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      DATABASE_TYPE: mysql
+      DATABASE_HOST: 127.0.0.1
+      DATABASE_PORT: 3306
+      DATABASE_USERNAME: redecoop
+      DATABASE_PASSWORD: redecoop123
+      DATABASE_NAME: redecoopapi
+      PORT: 3000
+      TZ: America/Sao_Paulo
+      JWT_SECRET: e2e-jwt-secret-somente-ci
+      DASHBOARD_URL: http://localhost:5174
+      WEBSITE_URL: http://localhost:5173
+      MAILBOX_ENCRYPTION_KEY: chave-e2e-somente-ci-redecoop
+      MAILBOX_SYNC_INTERVAL_SECONDS: 30
+      MAILBOX_TLS_REJECT_UNAUTHORIZED: 'false'
+      MAILBOX_RATE_LIMIT_SCALE: 20
+      PLAYWRIGHT_CHANNEL: chrome
+      SCREENSHOT_DIR: ${{ github.workspace }}/e2e/screenshots
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            api-redecoop/package-lock.json
+            dashboard-redecoop/package-lock.json
+            e2e/package-lock.json
+      - name: Servidor de e-mail local (Dovecot + Postfix)
+        run: bash e2e/mail-server/setup.sh
+      - name: Dependências
+        run: |
+          (cd api-redecoop && npm ci)
+          (cd dashboard-redecoop && npm ci)
+          (cd e2e && npm ci)
+      - name: Migrações
+        working-directory: api-redecoop
+        run: npm run migration:run
+      - name: Subir API e painel
+        run: |
+          (cd api-redecoop && npm run build && nohup node dist/main > /tmp/api.log 2>&1 &)
+          (cd dashboard-redecoop && nohup npx vite --host 127.0.0.1 --port 5174 --strictPort > /tmp/vite.log 2>&1 &)
+          for _ in $(seq 1 60); do
+            if curl -fs -o /dev/null http://127.0.0.1:5174 && curl -s -o /dev/null http://127.0.0.1:3000/api/root/mailbox/account; then exit 0; fi
+            sleep 2
+          done
+          tail -n 80 /tmp/api.log /tmp/vite.log
+          exit 1
+      - name: Playwright (Chrome)
+        working-directory: e2e
+        run: npx playwright install --with-deps chrome
+      - name: Testes E2E
+        working-directory: e2e
+        run: npx playwright test
+      - name: Logs
+        if: failure()
+        run: |
+          tail -n 200 /tmp/api.log || true
+          sudo tail -n 100 /var/log/dovecot-e2e.log /var/log/postfix-e2e.log || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-relatorio
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+            e2e/screenshots
+          retention-days: 14

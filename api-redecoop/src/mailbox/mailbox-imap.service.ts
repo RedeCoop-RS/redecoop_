@@ -339,10 +339,18 @@ export class MailboxImapService {
     });
   }
 
-  async createFolder(creds: MailboxCredentials, path: string): Promise<void> {
-    await this.withClient(creds, async (client) => {
-      await client.mailboxCreate(path);
-      await client.mailboxSubscribe(path).catch(() => undefined);
+  /** O imapflow acrescenta o prefixo do namespace (ex.: "INBOX." na Hostinger); devolve o caminho real. */
+  async createFolder(
+    creds: MailboxCredentials,
+    path: string,
+  ): Promise<{ path: string; created: boolean }> {
+    return this.withClient(creds, async (client) => {
+      const result = await client.mailboxCreate(path);
+      const realPath = result?.path || path;
+      if (result?.created !== false) {
+        await client.mailboxSubscribe(realPath).catch(() => undefined);
+      }
+      return { path: realPath, created: result?.created !== false };
     });
   }
 

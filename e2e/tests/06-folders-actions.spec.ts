@@ -187,6 +187,9 @@ test.describe.serial('Pastas e ações nas mensagens', () => {
     await shot(page, '15-acoes-em-lote')
     await (await bulkBar(page)).getByRole('button', { name: 'Não lidas' }).click()
     await expect.poll(() => unseenCount('INBOX')).toBe(total)
+    await expect(await bulkBar(page)).toBeHidden()
+    await page.keyboard.press('Shift+A')
+    await expect(await bulkBar(page)).toContainText(`${total} selecionada(s)`)
     await page.keyboard.press('Shift+A')
     await expect(await bulkBar(page)).toBeHidden()
 

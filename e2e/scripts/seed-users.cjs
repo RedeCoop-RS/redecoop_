@@ -15,7 +15,7 @@ async function main() {
   const db = await mysql.createConnection({
     host: process.env.DATABASE_HOST || '127.0.0.1',
     port: Number(process.env.DATABASE_PORT || 3306),
-    user: process.env.DATABASE_USER || 'redecoop',
+    user: process.env.DATABASE_USERNAME || process.env.DATABASE_USER || 'redecoop',
     password: process.env.DATABASE_PASSWORD || 'redecoop123',
     database: process.env.DATABASE_NAME || 'redecoopapi',
   });

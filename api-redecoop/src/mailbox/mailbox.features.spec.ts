@@ -110,6 +110,7 @@ describe('MailboxService – recursos de webmail', () => {
     updateFlags: jest.fn(),
     listFolders: jest.fn(),
     renameFolder: jest.fn(),
+    createFolder: jest.fn(),
   };
 
   const account = {
@@ -308,6 +309,18 @@ describe('MailboxService – recursos de webmail', () => {
       const result = await service.renameFolder({ path: 'Pedidos', name: 'Pedidos 2026' });
       expect(result.path).toBe('Pedidos 2026');
       expect(imap.renameFolder).toHaveBeenCalledWith(expect.anything(), 'Pedidos', 'Pedidos 2026');
+    });
+
+    it('cria pasta e devolve o caminho real com o prefixo do namespace (Hostinger: INBOX.)', async () => {
+      imap.listFolders.mockResolvedValue([
+        { path: 'INBOX', name: 'INBOX', delimiter: '.', flags: [], selectable: true },
+        { path: 'INBOX.Sent', name: 'Sent', delimiter: '.', flags: [], selectable: true },
+      ]);
+      imap.createFolder.mockResolvedValueOnce({ path: 'INBOX.Safra', created: true });
+      const result = await service.createFolder({ name: 'Safra' });
+      expect(result.path).toBe('INBOX.Safra');
+      imap.createFolder.mockResolvedValueOnce({ path: 'INBOX.Safra', created: false });
+      await expect(service.createFolder({ name: 'Safra' })).rejects.toThrow(/Já existe/);
     });
   });
 

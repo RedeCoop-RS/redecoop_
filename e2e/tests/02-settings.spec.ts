@@ -9,7 +9,7 @@ async function storedCipher() {
   const mysql = apiRequire('mysql2/promise')
   const db = await mysql.createConnection({
     host: process.env.DATABASE_HOST || '127.0.0.1',
-    user: process.env.DATABASE_USER || 'redecoop',
+    user: process.env.DATABASE_USERNAME || process.env.DATABASE_USER || 'redecoop',
     password: process.env.DATABASE_PASSWORD || 'redecoop123',
     database: process.env.DATABASE_NAME || 'redecoopapi',
   })
