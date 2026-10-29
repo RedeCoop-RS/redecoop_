@@ -24,6 +24,7 @@ async function bootstrap() {
   });
   // Rascunhos de e-mail levam HTML citado e imagens coladas no texto.
   app.use('/api/root/mailbox', json({ limit: '16mb' }));
+  app.use('/api/root/blog', json({ limit: '8mb' }));
   app.useBodyParser('json', { limit: '2mb' });
   app.useBodyParser('urlencoded', { limit: '2mb', extended: true });
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));

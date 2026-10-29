@@ -1,0 +1,155 @@
+name: Blog do super admin
+
+on:
+  pull_request:
+    paths:
+      - 'api-redecoop/**'
+      - 'dashboard-redecoop/**'
+      - 'e2e/**'
+      - '.github/workflows/blog.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'api-redecoop/**'
+      - 'dashboard-redecoop/**'
+      - 'e2e/**'
+      - '.github/workflows/blog.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: blog-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Testes unitários e build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            api-redecoop/package-lock.json
+            dashboard-redecoop/package-lock.json
+      - name: API — dependências
+        working-directory: api-redecoop
+        run: npm ci
+      - name: API — testes do blog
+        working-directory: api-redecoop
+        run: npx jest src/blog
+      - name: API — build
+        working-directory: api-redecoop
+        run: npm run build
+      - name: Painel — dependências
+        working-directory: dashboard-redecoop
+        run: npm ci
+      - name: Painel — typecheck e build
+        working-directory: dashboard-redecoop
+        run: npm run build
+
+  e2e:
+    name: E2E (Ghost ${{ matrix.ghost }})
+    runs-on: ubuntu-24.04
+    needs: unit
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        ghost: [5-alpine, 6-alpine]
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_DATABASE: redecoopapi
+          MARIADB_USER: redecoop
+          MARIADB_PASSWORD: redecoop123
+          MARIADB_ROOT_PASSWORD: root-e2e
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      DATABASE_TYPE: mysql
+      DATABASE_HOST: 127.0.0.1
+      DATABASE_PORT: 3306
+      DATABASE_USERNAME: redecoop
+      DATABASE_PASSWORD: redecoop123
+      DATABASE_NAME: redecoopapi
+      PORT: 3000
+      TZ: America/Sao_Paulo
+      JWT_SECRET: e2e-jwt-secret-somente-ci
+      DASHBOARD_URL: http://localhost:5174
+      WEBSITE_URL: http://localhost:5173
+      GHOST_ADMIN_URL: http://127.0.0.1:2368
+      GHOST_API_VERSION: v6.0
+      GHOST_ENCRYPTION_KEY: chave-e2e-somente-ci-redecoop
+      MAILBOX_ENCRYPTION_KEY: chave-e2e-somente-ci-redecoop
+      E2E_SUITE: blog
+      PLAYWRIGHT_CHANNEL: chrome
+      SCREENSHOT_DIR: ${{ github.workspace }}/e2e/screenshots
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            api-redecoop/package-lock.json
+            dashboard-redecoop/package-lock.json
+            e2e/package-lock.json
+      - name: Ghost ${{ matrix.ghost }} (sqlite, modo development)
+        run: |
+          docker run -d --name ghost-e2e \
+            -e NODE_ENV=development \
+            -e url=http://127.0.0.1:2368 \
+            -e database__client=sqlite3 \
+            -e database__connection__filename=/var/lib/ghost/content/data/ghost.db \
+            -e security__staffDeviceVerification=false \
+            -e mail__transport=Direct \
+            -p 2368:2368 \
+            ghost:${{ matrix.ghost }}
+          node e2e/scripts/ghost-setup.mjs || { docker logs ghost-e2e || true; exit 1; }
+      - name: Dependências
+        run: |
+          (cd api-redecoop && npm ci)
+          (cd dashboard-redecoop && npm ci)
+          (cd e2e && npm ci)
+      - name: Migrações
+        working-directory: api-redecoop
+        run: npm run migration:run
+      - name: Subir API e painel
+        run: |
+          (cd api-redecoop && npm run build && nohup node dist/main > /tmp/api.log 2>&1 &)
+          (cd dashboard-redecoop && nohup npx vite --host 127.0.0.1 --port 5174 --strictPort > /tmp/vite.log 2>&1 &)
+          for _ in $(seq 1 60); do
+            if curl -fs -o /dev/null http://127.0.0.1:5174 && curl -s -o /dev/null http://127.0.0.1:3000/api/root/blog/connection; then exit 0; fi
+            sleep 2
+          done
+          echo '--- api ---'
+          tail -n 80 /tmp/api.log || true
+          echo '--- vite ---'
+          tail -n 80 /tmp/vite.log || true
+          exit 1
+      - name: Playwright (Chrome)
+        working-directory: e2e
+        run: npx playwright install --with-deps chrome
+      - name: Testes E2E
+        working-directory: e2e
+        run: npx playwright test
+      - name: Logs
+        if: failure()
+        run: |
+          tail -n 200 /tmp/api.log || true
+          docker logs ghost-e2e || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-blog-relatorio-${{ matrix.ghost }}
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+            e2e/screenshots
+          retention-days: 14
