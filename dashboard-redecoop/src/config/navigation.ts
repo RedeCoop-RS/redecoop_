@@ -11,6 +11,7 @@ import {
   Package,
   Settings,
   ShoppingCart,
+  FileSpreadsheet,
   Sprout,
   Truck,
   Users,
@@ -50,6 +51,7 @@ const adminNav: SidebarItem[] = [
   { name: 'Cooperativas', url: '/admin/cooperativas', icon: Building2 },
   { name: 'Negócios', url: '/admin/negocios', icon: Handshake },
   { name: 'Compras Coletivas', url: '/admin/compras-coletivas', icon: ShoppingCart },
+  { name: 'Termo de Cooperação', url: '/admin/termos-de-cooperacao', icon: FileSpreadsheet },
   {
     name: 'CoopFrete',
     url: '',
@@ -74,6 +76,7 @@ const cooperativeNav: SidebarItem[] = [
   { name: 'Meus Produtos', url: '/cooperativa/produtos', icon: Package },
   { name: 'Negócios', url: '/cooperativa/negocios', icon: Handshake },
   { name: 'Compras Coletivas', url: '/cooperativa/compras-coletivas', icon: ShoppingCart },
+  { name: 'Termo de Cooperação', url: '/cooperativa/termos-de-cooperacao', icon: FileSpreadsheet },
   {
     name: 'CoopFrete',
     url: '',

@@ -45,6 +45,7 @@ import { WeightRangeModule } from './weightRange/weightRange.module';
 import { DistanceRangeModule } from './distanceRange/distanceRange.module';
 import { CafModule } from './caf/caf.module';
 import { WebsiteAnalyticsModule } from './websiteAnalytics/websiteAnalytics.module';
+import { CooperationTermModule } from './cooperationTerm/cooperationTerm.module';
 import './_common/database/config';
 
 function requireJwtSecret(): string {
@@ -105,6 +106,7 @@ function requireJwtSecret(): string {
     ValueRangeModule,
     CafModule,
     WebsiteAnalyticsModule,
+    CooperationTermModule,
   ],
   controllers: [AppController],
   providers: [

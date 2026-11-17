@@ -37,6 +37,12 @@ const BusinessCooperativePage = lazy(() =>
 const CollectivePurchasePage = lazy(() =>
   import('@/pages/CollectivePurchasePage').then((m) => ({ default: m.CollectivePurchasePage })),
 )
+const CooperationTermsPage = lazy(() =>
+  import('@/pages/CooperationTermsPage').then((m) => ({ default: m.CooperationTermsPage })),
+)
+const CooperationTermPage = lazy(() =>
+  import('@/pages/CooperationTermPage').then((m) => ({ default: m.CooperationTermPage })),
+)
 const TravelsPage = lazy(() =>
   import('@/pages/TravelsPage').then((m) => ({ default: m.TravelsPage })),
 )
@@ -99,6 +105,8 @@ export default function App() {
                     <Route path="cooperativas" element={<CooperativesPage />} />
                     <Route path="negocios" element={<BusinessPage />} />
                     <Route path="compras-coletivas" element={<CollectivePurchasePage />} />
+                    <Route path="termos-de-cooperacao" element={<CooperationTermsPage />} />
+                    <Route path="termos-de-cooperacao/:id" element={<CooperationTermPage />} />
                     <Route path="viagens-disponiveis" element={<TravelsPage />} />
                     <Route path="mensagens" element={<MessagesPage />} />
                     <Route path="email" element={<MailboxPage />} />
@@ -119,6 +127,8 @@ export default function App() {
                     <Route path="cooperativas" element={<CooperativesPage />} />
                     <Route path="negocios" element={<BusinessCooperativePage />} />
                     <Route path="compras-coletivas" element={<CollectivePurchasePage />} />
+                    <Route path="termos-de-cooperacao" element={<CooperationTermsPage />} />
+                    <Route path="termos-de-cooperacao/:id" element={<CooperationTermPage />} />
                     <Route path="viagens-disponiveis" element={<TravelsPage />} />
                     <Route path="minhas-viagens" element={<MyTravelsPage />} />
                     <Route path="mensagens" element={<MessagesPage />} />
