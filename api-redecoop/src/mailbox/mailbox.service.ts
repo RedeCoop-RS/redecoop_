@@ -85,6 +85,39 @@ export class MailboxService {
     return run;
   }
 
+  /**
+   * A caixa do painel usa a mesma conta Hostinger já definida em SMTP_*.
+   * Sem uma linha em mailbox_account o painel abre a tela de configuração.
+   */
+  async ensureEnvAccount() {
+    if (await this.findAccount()) return;
+    const email = process.env.SMTP_USER?.trim();
+    const password = stripEnvQuotes(process.env.SMTP_PASS);
+    const smtpHost = process.env.SMTP_HOST?.trim();
+    if (!email || !password || !smtpHost) return;
+    const smtpPort = Number(process.env.SMTP_PORT || 465);
+    const imapHost = smtpHost.replace(/^smtp\./i, 'imap.');
+    try {
+      await this.saveAccount(0, {
+        label: 'Caixa principal',
+        email,
+        displayName: displayNameFrom(process.env.SMTP_FROM) || 'RedeCoop RS',
+        imapHost,
+        imapPort: 993,
+        imapSecure: true,
+        smtpHost,
+        smtpPort: Number.isFinite(smtpPort) ? smtpPort : 465,
+        smtpSecure: smtpPort === 465,
+        username: email,
+        password,
+      });
+      this.logger.log(`Caixa ${email} conectada a partir do SMTP já configurado.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Não foi possível abrir a caixa ${email}: ${message.slice(0, 180)}`);
+    }
+  }
+
   async getAccountView() {
     const account = await this.findAccount();
     const unread = account ? await this.inboxUnread(account.id) : 0;
@@ -156,7 +189,7 @@ export class MailboxService {
       signatures.find((item) => item.id === account.defaultSignatureId)?.html || null;
     if (dto.undoSendSeconds !== undefined) account.undoSendSeconds = dto.undoSendSeconds;
     account.syncIntervalSeconds = dto.syncIntervalSeconds || defaultSyncIntervalSeconds();
-    account.createdByUserId = account.createdByUserId || userId;
+    if (userId > 0) account.createdByUserId = account.createdByUserId || userId;
     const saved = await this.accounts.save(account);
     notifyMailboxAccountChanged();
     return toAccountView(saved, await this.inboxUnread(saved.id));
@@ -216,6 +249,7 @@ export class MailboxService {
   async listFolders() {
     const account = await this.findAccount();
     if (!account) return { configured: false, folders: [], localDrafts: 0, unread: 0 };
+    await this.reparentRootCustomFolders(account.id);
     const folders = await this.folders.find({ where: { accountId: account.id } });
     const localDrafts = await this.drafts.count({ where: { accountId: account.id } });
     return {
@@ -993,16 +1027,21 @@ export class MailboxService {
       throw this.fail(error, 'Não foi possível ler as pastas.', creds.password);
     });
     const name = dto.name.trim();
+    const inbox = remote.find(
+      (item) => item.path.toUpperCase() === 'INBOX' || classifyFolder(item) === 'inbox',
+    );
+    const parentPath = dto.parent || inbox?.path;
     let path = name;
-    if (dto.parent) {
-      const parent = remote.find((item) => item.path === this.cleanPath(dto.parent));
+    if (parentPath) {
+      const parent = remote.find((item) => item.path === this.cleanPath(parentPath));
       if (!parent) throw new NotFoundException('Pasta mãe não encontrada.');
-      if (name.includes(parent.delimiter || '/')) {
+      const delimiter = parent.delimiter || '.';
+      if (name.includes(delimiter)) {
         throw new BadRequestException('O nome da pasta não pode conter o separador de pastas.');
       }
-      path = `${parent.path}${parent.delimiter || '/'}${name}`;
+      path = `${parent.path}${delimiter}${name}`;
     } else {
-      const delimiter = remote.find((item) => item.delimiter)?.delimiter || '/';
+      const delimiter = remote.find((item) => item.delimiter)?.delimiter || '.';
       if (name.includes(delimiter)) {
         throw new BadRequestException('O nome da pasta não pode conter o separador de pastas.');
       }
@@ -1257,6 +1296,39 @@ export class MailboxService {
     if (folder.specialUse !== 'other' || folder.path.toUpperCase() === 'INBOX') {
       throw new BadRequestException('Pastas do sistema não podem ser renomeadas nem excluídas.');
     }
+  }
+
+  private async reparentRootCustomFolders(accountId: number) {
+    const folders = await this.folders.find({ where: { accountId } });
+    const inbox = folders.find((folder) => folder.specialUse === 'inbox');
+    if (!inbox) return;
+    const delimiter = folders.some((folder) => folder.path.startsWith(`${inbox.path}.`))
+      ? '.'
+      : folders.some((folder) => folder.path.startsWith(`${inbox.path}/`))
+        ? '/'
+        : '.';
+    const roots = folders.filter(
+      (folder) =>
+        folder.specialUse === 'other' &&
+        folder.path.toUpperCase() !== 'INBOX' &&
+        !folder.path.includes(delimiter) &&
+        !folder.path.includes('/') &&
+        !folder.path.includes('.'),
+    );
+    if (!roots.length) return;
+    const creds = await this.getIdleCredentials();
+    if (!creds) return;
+    for (const folder of roots) {
+      const nextPath = `${inbox.path}${delimiter}${folder.name}`;
+      try {
+        await this.imap.renameFolder(creds, folder.path, nextPath);
+        folder.path = nextPath;
+        await this.folders.save(folder);
+      } catch (error) {
+        this.logger.warn(`Não foi possível aninhar a pasta ${folder.path}: ${this.describe(error)}`);
+      }
+    }
+    await this.refreshFolderList(accountId, creds);
   }
 
   private async refreshFolderList(accountId: number, creds: MailboxCredentials) {
@@ -1603,13 +1675,14 @@ export class MailboxService {
   ) {
     const { account, creds } = await this.requireAccount();
     const folder = await this.folderByPath(account.id, folderPath);
-    try {
-      await this.imap.updateFlags(creds, folder.path, uids, change);
-      await this.messages.update({ folderId: folder.id, uid: In(uids) }, patch);
-      await this.refreshUnseen(creds, folder);
-    } catch (error) {
-      throw this.fail(error, 'Não foi possível atualizar as mensagens.', creds.password);
+    await this.messages.update({ folderId: folder.id, uid: In(uids) }, patch);
+    if (patch.seen !== undefined) {
+      folder.unreadCount = await this.messages.count({ where: { folderId: folder.id, seen: false } });
+      await this.folders.save(folder);
     }
+    void this.imap.updateFlags(creds, folder.path, uids, change).catch((error) => {
+      this.logger.warn(`Falha ao replicar a marcação no IMAP: ${this.describe(error)}`);
+    });
     return { ok: true, unread: await this.inboxUnread(account.id) };
   }
 
@@ -1900,4 +1973,16 @@ export class MailboxService {
       return new NotFoundException('Mensagem não encontrada nesta pasta.');
     return new BadRequestException(fallback);
   }
+}
+
+function stripEnvQuotes(value: string | undefined) {
+  const trimmed = value?.trim() || '';
+  const quoted = trimmed.match(/^(['"])([\s\S]*)\1$/);
+  return quoted ? quoted[2] : trimmed;
+}
+
+function displayNameFrom(value: string | undefined) {
+  const raw = stripEnvQuotes(value);
+  const named = raw.match(/^([^<]+)</);
+  return named?.[1]?.trim().replace(/^"|"$/g, '') || '';
 }

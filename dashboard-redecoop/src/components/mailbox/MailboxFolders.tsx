@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Archive, CalendarClock, FileText, Folder, FolderPlus, Inbox, Pencil, Send, ShieldAlert, Trash, Trash2 } from 'lucide-react'
+import { Archive, CalendarClock, FileText, Folder, FolderPlus, Inbox, Pencil, PenLine, Send, ShieldAlert, Trash, Trash2 } from 'lucide-react'
 import type { MailFolder } from '@/services/mailbox.service'
-import { folderLabel, formatBytes } from './format'
+import { folderLabel } from './format'
 
 const ICONS = {
   inbox: Inbox,
@@ -14,13 +14,47 @@ const ICONS = {
 
 export const DRAG_TYPE = 'application/x-redecoop-mail'
 
+function parentPath(path: string, delimiter: string) {
+  const index = path.lastIndexOf(delimiter)
+  return index > 0 ? path.slice(0, index) : null
+}
+
+function folderTree(folders: MailFolder[]) {
+  const inbox = folders.find((folder) => folder.specialUse === 'inbox')
+  const delimiter = inbox && folders.some((folder) => folder.path.startsWith(`${inbox.path}.`))
+    ? '.'
+    : inbox && folders.some((folder) => folder.path.startsWith(`${inbox.path}/`))
+      ? '/'
+      : '.'
+  const byPath = new Set(folders.map((folder) => folder.path))
+  const children = new Map<string, MailFolder[]>()
+  const roots: MailFolder[] = []
+  for (const folder of folders) {
+    const parent = folder.specialUse === 'other' ? parentPath(folder.path, delimiter) : null
+    const attach = parent && byPath.has(parent) ? parent : folder.specialUse === 'other' ? inbox?.path : null
+    if (attach && attach !== folder.path) {
+      const list = children.get(attach) ?? []
+      list.push(folder)
+      children.set(attach, list)
+      continue
+    }
+    roots.push(folder)
+  }
+  const ordered: Array<{ folder: MailFolder; depth: number }> = []
+  const walk = (folder: MailFolder, depth: number) => {
+    ordered.push({ folder, depth })
+    const nested = (children.get(folder.path) ?? []).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+    for (const child of nested) walk(child, depth + 1)
+  }
+  for (const root of roots) walk(root, 0)
+  return ordered
+}
+
 interface MailboxFoldersProps {
   folders: MailFolder[]
   current?: string
   scheduledView: boolean
-  drafts: number
   scheduled: number
-  quota: { usage: number; limit: number } | null
   onSelect: (folder: MailFolder) => void
   onScheduled: () => void
   onDropMessages: (uids: number[], from: string, target: string) => void
@@ -28,17 +62,21 @@ interface MailboxFoldersProps {
   onRename: (folder: MailFolder) => void
   onDelete: (folder: MailFolder) => void
   onEmpty: (folder: MailFolder) => void
+  onCompose: () => void
+  composeDisabled: boolean
 }
 
 export function MailboxFolders(props: MailboxFoldersProps) {
   const { folders, current } = props
   const [over, setOver] = useState<string | null>(null)
-  const sorted = folders.filter((folder) => folder.selectable)
-  const usage = props.quota ? Math.min(100, Math.round((props.quota.usage / props.quota.limit) * 100)) : 0
+  const sorted = folderTree(folders.filter((folder) => folder.selectable))
 
   return (
     <nav className="mailbox-folders" aria-label="Pastas">
-      {sorted.map((folder) => {
+      <button type="button" className="mailbox-compose" onClick={props.onCompose} disabled={props.composeDisabled}>
+        <PenLine size={16} /> Escrever
+      </button>
+      {sorted.map(({ folder, depth }) => {
         const Icon = ICONS[folder.specialUse as keyof typeof ICONS] || Folder
         const active = !props.scheduledView && folder.path === current
         const custom = folder.specialUse === 'other' && folder.path.toUpperCase() !== 'INBOX'
@@ -69,7 +107,8 @@ export function MailboxFolders(props: MailboxFoldersProps) {
           >
             <button
               type="button"
-              className={`mailbox-folder ${active ? 'mailbox-folder--active' : ''}`}
+              className={`mailbox-folder ${active ? 'mailbox-folder--active' : ''} ${depth > 0 ? 'mailbox-folder--nested' : ''}`}
+              style={depth > 0 ? { paddingLeft: `${0.7 + depth * 0.85}rem` } : undefined}
               onClick={() => props.onSelect(folder)}
               data-folder={folder.path}
               title={folder.totalCount ? `${folder.totalCount} mensagens` : undefined}
@@ -107,13 +146,6 @@ export function MailboxFolders(props: MailboxFoldersProps) {
         <FolderPlus size={16} />
         <span>Nova pasta</span>
       </button>
-      {props.drafts > 0 && <p className="mailbox-folder-note">{props.drafts} rascunho{props.drafts > 1 ? 's' : ''} local{props.drafts > 1 ? 'is' : ''}</p>}
-      {props.quota && (
-        <div className="mailbox-quota" aria-label="Espaço usado">
-          <div className="mailbox-quota__bar"><span style={{ width: `${usage}%` }} className={usage >= 90 ? 'is-full' : ''} /></div>
-          <small>{formatBytes(props.quota.usage)} de {formatBytes(props.quota.limit)} ({usage}%)</small>
-        </div>
-      )}
     </nav>
   )
 }

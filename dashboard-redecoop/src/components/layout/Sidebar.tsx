@@ -7,14 +7,13 @@ import { useSocket } from '@/contexts/SocketContext'
 import { useMailboxUnread } from '@/contexts/MailboxUnreadContext'
 import { NotifyBadge } from '@/components/ui/NotifyBadge'
 import { getNavigation, isDivider, type NavItem } from '@/config/navigation'
+import { UserMenu } from './UserMenu'
 
 interface SidebarProps {
-  open: boolean
-  onClose: () => void
   onOpenNotifications: () => void
 }
 
-export function Sidebar({ open, onClose, onOpenNotifications }: SidebarProps) {
+export function Sidebar({ onOpenNotifications }: SidebarProps) {
   const { user } = useAuth()
   const { count: pendingRequests } = usePendingRequests()
   const { unreadCount } = useSocket()
@@ -69,8 +68,8 @@ export function Sidebar({ open, onClose, onOpenNotifications }: SidebarProps) {
           onClick={onOpenNotifications}
           className="dashboard-sidebar__link w-full"
         >
-          <Icon size={18} />
-          <span className="flex-1 text-left">{item.name}</span>
+          <Icon size={22} className="dashboard-sidebar__icon" />
+          <span className="dashboard-sidebar__text">{item.name}</span>
           <NotifyBadge count={unreadCount} />
         </button>
       )
@@ -85,11 +84,11 @@ export function Sidebar({ open, onClose, onOpenNotifications }: SidebarProps) {
             onClick={() => toggleSubmenu(item.name)}
             className={`dashboard-sidebar__link w-full ${active ? 'dashboard-sidebar__link--active' : ''}`}
           >
-            <Icon size={18} />
-            <span className="flex-1 text-left">{item.name}</span>
+            <Icon size={22} className="dashboard-sidebar__icon" />
+            <span className="dashboard-sidebar__text">{item.name}</span>
             <ChevronDown
               size={16}
-              className={`transition-transform ${expanded ? 'rotate-180' : ''}`}
+              className={`dashboard-sidebar__chevron transition-transform ${expanded ? 'rotate-180' : ''}`}
             />
           </button>
           {expanded && (
@@ -98,7 +97,6 @@ export function Sidebar({ open, onClose, onOpenNotifications }: SidebarProps) {
                 <Link
                   key={sub.url}
                   to={sub.url}
-                  onClick={onClose}
                   className={`dashboard-sidebar__submenu-link ${isActive(sub.url) ? 'dashboard-sidebar__submenu-link--active' : ''}`}
                 >
                   {sub.name}
@@ -114,11 +112,11 @@ export function Sidebar({ open, onClose, onOpenNotifications }: SidebarProps) {
       <Link
         key={item.url}
         to={item.url}
-        onClick={onClose}
+        title={item.name}
         className={`dashboard-sidebar__link ${active ? 'dashboard-sidebar__link--active' : ''}`}
       >
-        <Icon size={18} />
-        <span className="flex-1">{item.name}</span>
+        <Icon size={22} className="dashboard-sidebar__icon" />
+        <span className="dashboard-sidebar__text">{item.name}</span>
         {item.url.includes('visitantes-e-solicitacoes') && pendingRequests > 0 && (
           <NotifyBadge count={pendingRequests} />
         )}
@@ -129,24 +127,19 @@ export function Sidebar({ open, onClose, onOpenNotifications }: SidebarProps) {
 
   return (
     <>
-      <aside className={`dashboard-sidebar ${open ? 'dashboard-sidebar--open' : ''}`}>
-        <div className="home-stripe-bar">
-          <span className="home-stripe-bar__green" />
-          <span className="home-stripe-bar__yellow" />
-          <span className="home-stripe-bar__mint" />
-        </div>
-
+      <aside
+        className="dashboard-sidebar"
+        onMouseLeave={(event) => {
+          const active = document.activeElement
+          if (active instanceof HTMLElement && event.currentTarget.contains(active)) {
+            active.blur()
+          }
+        }}
+      >
         <div className="dashboard-sidebar__brand">
-          <Link to={user.role === 'ADMIN' ? '/admin' : '/cooperativa'} onClick={onClose}>
-            <img
-              src="/assets/imgs/logo-text-white.svg"
-              alt="RedeCoop"
-              className="h-8 w-auto"
-            />
+          <Link to={user.role === 'ADMIN' ? '/admin' : '/cooperativa'} className="dashboard-sidebar__logo" title="RedeCoop">
+            <img src="/assets/imgs/logo-text-white.svg" alt="RedeCoop" />
           </Link>
-          <p className="mt-2 text-xs text-white/50">
-            {user.role === 'ADMIN' ? 'Painel Administrativo' : 'Painel Cooperativa'}
-          </p>
         </div>
 
         <nav className="dashboard-sidebar__nav">
@@ -158,16 +151,11 @@ export function Sidebar({ open, onClose, onOpenNotifications }: SidebarProps) {
             ),
           )}
         </nav>
-      </aside>
 
-      {open && (
-        <button
-          type="button"
-          aria-label="Fechar menu"
-          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
-          onClick={onClose}
-        />
-      )}
+        <div className="dashboard-sidebar__footer">
+          <UserMenu />
+        </div>
+      </aside>
     </>
   )
 }

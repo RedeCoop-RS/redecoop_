@@ -46,6 +46,22 @@ export function splitEven(total: number, parts: number): number[] {
   return shares
 }
 
+/**
+ * Rodízio sugerido para o calendário, no padrão dos termos firmados: cada mês com uma cooperativa
+ * e os meses divididos por igual. Com 2, 3 ou 6 cooperativas o revezamento é de dois em dois meses;
+ * nos demais casos, mês a mês.
+ */
+export function suggestRotation(cooperatives: number): number[][] {
+  if (cooperatives <= 0) return []
+  const result: number[][] = Array.from({ length: cooperatives }, () => [])
+  const block = 6 % cooperatives === 0 ? 2 : 1
+  for (let month = 1; month <= 12; month++) {
+    const slot = Math.floor((month - 1) / block) % cooperatives
+    result[slot].push(month)
+  }
+  return result
+}
+
 export function sumsMatch(total: number, parts: number[]): boolean {
   const scale = 1000
   const expected = Math.round(total * scale)

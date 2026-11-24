@@ -19,6 +19,7 @@ export interface CooperationTermAllocationView {
 export interface CooperationTermItemView {
   id: number;
   position: number;
+  itemNumber: number;
   description: string;
   unit: string;
   estimatedQuantity: number;
@@ -69,6 +70,7 @@ export interface CooperationTermDetail {
   recipientsPreview: CooperationTermRecipientView[];
   emailLogs: {
     id: number;
+    kind: string;
     status: string;
     detail: string | null;
     createdAt: string;
@@ -100,6 +102,18 @@ export function cooperativeLabel(
   return name || (fallbackId ? `Cooperativa #${fallbackId}` : 'Cooperativa');
 }
 
+/** Ordem do edital: número do item e, sem número, a posição de cadastro. */
+export function sortItems<T extends { itemNumber: number | null; position: number; id: number }>(
+  items: T[],
+): T[] {
+  return [...items].sort(
+    (a, b) =>
+      (a.itemNumber ?? a.position) - (b.itemNumber ?? b.position) ||
+      a.position - b.position ||
+      a.id - b.id,
+  );
+}
+
 function iso(value?: Date | string | null): string | null {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
@@ -113,8 +127,7 @@ export function presentTerm(
   actor: CooperationActor,
 ): CooperationTermDetail {
   const divisionOnly = access.scope === 'division';
-  const items = [...(term.items ?? [])]
-    .sort((a, b) => a.position - b.position || a.id - b.id)
+  const items = sortItems(term.items ?? [])
     .map((item) => {
       const interests = [...(item.interests ?? [])]
         .map((interest) => ({
@@ -149,6 +162,7 @@ export function presentTerm(
       return {
         id: item.id,
         position: item.position,
+        itemNumber: item.itemNumber ?? item.position,
         description: item.description,
         unit: item.unit,
         estimatedQuantity: asNumber(item.estimatedQuantity),
@@ -253,6 +267,7 @@ export function presentTerm(
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             .map((log) => ({
               id: log.id,
+              kind: log.kind ?? 'TERM',
               status: log.status,
               detail: log.detail,
               createdAt: iso(log.createdAt) ?? new Date(0).toISOString(),

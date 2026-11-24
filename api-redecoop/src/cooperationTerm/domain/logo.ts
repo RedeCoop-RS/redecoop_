@@ -1,0 +1,65 @@
+/** Logo horizontal da RedeCoop usado no cabeçalho do termo (PNG, 120x45). */
+export const REDECOOP_LOGO_PNG = Buffer.from(
+    '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',
+  'base64',
+);
+export const REDECOOP_LOGO_WIDTH = 120;
+export const REDECOOP_LOGO_HEIGHT = 45;

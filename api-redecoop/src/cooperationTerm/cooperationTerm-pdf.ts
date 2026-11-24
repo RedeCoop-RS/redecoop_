@@ -3,184 +3,306 @@ import { MONTH_LABELS } from './domain/calendar';
 import {
   DOCUMENT_NOTE,
   DOCUMENT_ORG,
+  DocumentKind,
+  DocumentLine,
+  SEASONALITY_HEADER,
   buildDocumentLines,
   documentTitle,
   includesPrices,
 } from './domain/document';
+import { REDECOOP_LOGO_HEIGHT, REDECOOP_LOGO_PNG, REDECOOP_LOGO_WIDTH } from './domain/logo';
 import { formatQty } from './domain/quantity';
 import { CooperationTerm } from './entities/cooperationTerm.entity';
 
-const GREEN = '#009640';
-const INK = '#1a1a2e';
+const INK = '#111111';
 const MUTED = '#5c6570';
-const LINE = '#d7dde3';
-const ZEBRAS = '#f3faf5';
+const BORDER = '#1f1f1f';
+const BAND = '#FFF200';
+const HEADER_FILL = '#F4F6F8';
+
+const MARGIN = 24;
+const LOGO_WIDTH = 84;
+const LOGO_HEIGHT = (LOGO_WIDTH * REDECOOP_LOGO_HEIGHT) / REDECOOP_LOGO_WIDTH;
+const BANNER_HEIGHT = LOGO_HEIGHT + 16;
+const BAND_HEIGHT = 22;
+const HEADER_ROW = 12;
+const ROW_HEIGHT = 14;
+const FOOTER_SPACE = 16;
+const FONT_SIZE = 6.8;
 
 interface Column {
+  key: string;
   title: string;
   width: number;
   align: 'left' | 'center' | 'right';
-  key: string;
+  merged: boolean;
+  bold?: boolean;
 }
 
-export function buildTermPdf(term: CooperationTerm): Promise<Buffer> {
+interface Group {
+  lines: DocumentLine[];
+  rowHeight: number;
+}
+
+export function buildTermPdf(term: CooperationTerm, kind: DocumentKind = 'term'): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'A3', layout: 'landscape', margin: 22 });
+    const doc = new PDFDocument({
+      size: 'A4',
+      layout: 'landscape',
+      margin: MARGIN,
+      bufferPages: true,
+      info: {
+        Title: documentTitle(term),
+        Author: 'RedeCoop',
+        Subject: kind === 'division' ? 'Planilha de divisão' : 'Termo de Cooperação',
+      },
+    });
     const chunks: Buffer[] = [];
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
-    paint(doc, term);
+    paint(doc, term, kind);
+    paintFooters(doc, term, kind);
     doc.end();
   });
 }
 
-function paint(doc: PDFKit.PDFDocument, term: CooperationTerm) {
-  const columns = buildColumns(doc, includesPrices(term));
-  const lines = buildDocumentLines(term);
-  let y = drawBanner(doc, term);
+function paint(doc: PDFKit.PDFDocument, term: CooperationTerm, kind: DocumentKind) {
+  const calendar = kind === 'term';
+  const columns = buildColumns(doc, includesPrices(term), calendar);
+  const groups = buildGroups(doc, buildDocumentLines(term), columns);
+  const bottom = doc.page.height - MARGIN - FOOTER_SPACE;
 
-  const drawHead = () => {
-    y = drawHeader(doc, columns, y);
-  };
-  drawHead();
+  let y = drawBanner(doc, term, kind);
+  y = drawHeader(doc, columns, y, calendar);
 
-  if (!lines.length) {
+  if (!groups.length) {
     doc
       .font('Helvetica')
-      .fontSize(9)
+      .fontSize(8)
       .fillColor(MUTED)
-      .text('Nenhum item cadastrado.', doc.page.margins.left, y + 6);
+      .text('Nenhum item com cooperativa interessada.', MARGIN, y + 8);
     return;
   }
 
-  lines.forEach((line, index) => {
-    const descriptionWidth = columns[1].width - 6;
-    const description = line.firstOfItem ? line.description : '';
-    const textHeight = doc
-      .font('Helvetica')
-      .fontSize(7.5)
-      .heightOfString(description || ' ', {
-        width: descriptionWidth,
-      });
-    const rowHeight = Math.max(15, textHeight + 5);
-    const bottom = doc.page.height - doc.page.margins.bottom;
-    if (y + rowHeight > bottom) {
+  for (const group of groups) {
+    const height = group.rowHeight * group.lines.length;
+    if (y + height > bottom) {
       doc.addPage();
-      y = drawBanner(doc, term);
-      drawHead();
+      y = drawHeader(doc, columns, MARGIN, calendar);
     }
-    drawRow(doc, columns, line, y, rowHeight, index);
-    y += rowHeight;
-  });
+    drawGroup(doc, columns, group, y);
+    y += height;
+  }
 }
 
-function buildColumns(doc: PDFKit.PDFDocument, prices: boolean): Column[] {
-  const usable = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+function buildColumns(doc: PDFKit.PDFDocument, prices: boolean, calendar: boolean): Column[] {
+  const usable = doc.page.width - MARGIN * 2;
   const columns: Column[] = [
-    { key: 'n', title: '#', width: 24, align: 'center' },
-    { key: 'description', title: 'DESCRIÇÃO DO ITEM', width: 0, align: 'left' },
-    { key: 'unit', title: 'UN', width: 30, align: 'center' },
-    { key: 'estimated', title: 'QTD. ESTIMADA', width: 64, align: 'right' },
+    { key: 'n', title: '', width: 18, align: 'center', merged: true },
+    { key: 'description', title: 'DESCRIÇÃO DO ITEM', width: 0, align: 'center', merged: true, bold: true },
+    { key: 'unit', title: 'UN', width: 26, align: 'center', merged: true, bold: true },
+    { key: 'estimated', title: 'Quantidade\nEstimada TOTAL', width: 56, align: 'center', merged: true, bold: true },
   ];
   if (prices) {
-    columns.push({ key: 'unitPrice', title: 'VALOR UNIT.', width: 58, align: 'right' });
-    columns.push({ key: 'totalPrice', title: 'VALOR TOTAL', width: 58, align: 'right' });
+    columns.push({ key: 'unitPrice', title: 'VALOR\nUNITÁRIO', width: 50, align: 'center', merged: true });
+    columns.push({ key: 'totalPrice', title: 'VALOR\nTOTAL', width: 58, align: 'center', merged: true });
   }
-  columns.push({ key: 'cooperative', title: 'COOPERATIVAS', width: 100, align: 'left' });
-  columns.push({ key: 'quote', title: 'QTD. COTAÇÃO', width: 64, align: 'right' });
-  MONTH_LABELS.forEach((label, index) => {
-    columns.push({ key: `m${index}`, title: label, width: 26, align: 'center' });
-  });
+  columns.push({ key: 'cooperative', title: 'COOPERATIVAS', width: calendar ? 70 : 110, align: 'center', merged: false, bold: true });
+  columns.push({ key: 'quote', title: 'QUANTIDADE P/\nCOTAÇÃO', width: calendar ? 56 : 70, align: 'center', merged: false, bold: true });
+  if (calendar) {
+    MONTH_LABELS.forEach((label, index) => {
+      columns.push({ key: `m${index}`, title: label, width: 21.5, align: 'center', merged: false });
+    });
+  }
   const used = columns.reduce((sum, column) => sum + column.width, 0);
-  columns[1].width = Math.max(110, usable - used);
+  columns[1].width = Math.max(120, usable - used);
   return columns;
 }
 
-function drawBanner(doc: PDFKit.PDFDocument, term: CooperationTerm): number {
-  const left = doc.page.margins.left;
-  const width = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+function buildGroups(doc: PDFKit.PDFDocument, lines: DocumentLine[], columns: Column[]): Group[] {
+  const groups: Group[] = [];
+  for (const line of lines) {
+    if (line.firstOfItem) groups.push({ lines: [], rowHeight: ROW_HEIGHT });
+    groups[groups.length - 1].lines.push(line);
+  }
+  const descriptionWidth = columns[1].width - 8;
+  doc.font('Helvetica-Bold').fontSize(FONT_SIZE);
+  for (const group of groups) {
+    const textHeight = doc.heightOfString(group.lines[0].description, { width: descriptionWidth });
+    const needed = textHeight + 6;
+    group.rowHeight = Math.max(ROW_HEIGHT, needed / group.lines.length);
+  }
+  return groups;
+}
+
+function drawBanner(doc: PDFKit.PDFDocument, term: CooperationTerm, kind: DocumentKind): number {
+  const width = doc.page.width - MARGIN * 2;
+  const top = MARGIN;
+
+  doc.lineWidth(0.8).rect(MARGIN, top, width, BANNER_HEIGHT + BAND_HEIGHT).strokeColor(BORDER).stroke();
+  doc.image(REDECOOP_LOGO_PNG, MARGIN + 10, top + (BANNER_HEIGHT - LOGO_HEIGHT) / 2, { width: LOGO_WIDTH });
+
+  const textLeft = MARGIN + 10 + LOGO_WIDTH + 12;
+  const textWidth = width - (textLeft - MARGIN) - 12;
   doc
-    .font('Helvetica-Bold')
-    .fontSize(11)
-    .fillColor(GREEN)
-    .text(DOCUMENT_ORG, left, doc.page.margins.top, {
-      width,
-      align: 'center',
-    });
+    .font('Times-Roman')
+    .fontSize(9)
+    .fillColor(INK)
+    .text(DOCUMENT_ORG, textLeft, top + 12, { width: textWidth, align: 'center' })
+    .text(
+      kind === 'division' ? 'PLANILHA DE DIVISÃO DAS QUANTIDADES PARA ELABORAÇÃO DO PROJETO DE VENDA.' : DOCUMENT_NOTE,
+      textLeft,
+      top + 24,
+      { width: textWidth, align: 'center' },
+    );
+
+  const bandTop = top + BANNER_HEIGHT;
+  doc.rect(MARGIN, bandTop, width, BAND_HEIGHT).fill(BAND);
+  doc
+    .lineWidth(0.8)
+    .moveTo(MARGIN, bandTop)
+    .lineTo(MARGIN + width, bandTop)
+    .strokeColor(BORDER)
+    .stroke();
   doc
     .font('Helvetica')
-    .fontSize(8)
-    .fillColor(MUTED)
-    .text(DOCUMENT_NOTE, left, doc.y + 2, {
-      width,
-      align: 'center',
-    });
-  doc
-    .font('Helvetica-Bold')
-    .fontSize(10)
+    .fontSize(7.5)
     .fillColor(INK)
-    .text(documentTitle(term), left, doc.y + 2, {
-      width,
-      align: 'center',
-    });
-  return doc.y + 8;
+    .text(documentTitle(term), MARGIN + 8, bandTop + 7.5, { width: width - 16, align: 'center' });
+
+  return bandTop + BAND_HEIGHT + 6;
 }
 
-function drawHeader(doc: PDFKit.PDFDocument, columns: Column[], y: number): number {
-  const height = 22;
-  let x = doc.page.margins.left;
-  columns.forEach((column) => {
-    doc.rect(x, y, column.width, height).fillAndStroke(GREEN, GREEN);
-    doc
-      .font('Helvetica-Bold')
-      .fontSize(6)
-      .fillColor('#ffffff')
-      .text(column.title, x + 2, y + 6, { width: column.width - 4, align: 'center' });
-    x += column.width;
-  });
-  return y + height;
-}
+function drawHeader(doc: PDFKit.PDFDocument, columns: Column[], top: number, calendar: boolean): number {
+  const total = HEADER_ROW * 2;
+  let x = MARGIN;
+  const monthsStart = calendar ? columns.findIndex((column) => column.key === 'm0') : -1;
 
-function drawRow(
-  doc: PDFKit.PDFDocument,
-  columns: Column[],
-  line: ReturnType<typeof buildDocumentLines>[number],
-  y: number,
-  height: number,
-  index: number,
-) {
-  const values = rowValues(line);
-  let x = doc.page.margins.left;
-  columns.forEach((column) => {
-    if (index % 2 === 0) doc.rect(x, y, column.width, height).fill(ZEBRAS);
-    doc.rect(x, y, column.width, height).strokeColor(LINE).stroke();
-    doc
-      .font(column.key.startsWith('m') ? 'Helvetica-Bold' : 'Helvetica')
-      .fontSize(7.5)
-      .fillColor(INK)
-      .text(values[column.key] ?? '', x + 2, y + 3.5, {
-        width: column.width - 4,
-        align: column.align,
-        lineBreak: column.key === 'description',
+  doc.lineWidth(0.5).strokeColor(BORDER);
+  columns.forEach((column, index) => {
+    const isMonth = monthsStart >= 0 && index >= monthsStart;
+    if (isMonth) {
+      doc.rect(x, top + HEADER_ROW, column.width, HEADER_ROW).fillAndStroke(HEADER_FILL, BORDER);
+      cellText(doc, column.title, x, top + HEADER_ROW, column.width, HEADER_ROW, {
+        bold: true,
+        size: 6.2,
       });
+    } else {
+      doc.rect(x, top, column.width, total).fillAndStroke(HEADER_FILL, BORDER);
+      cellText(doc, column.title, x, top, column.width, total, { bold: true, size: 6.2 });
+    }
     x += column.width;
+  });
+
+  if (monthsStart >= 0) {
+    const monthsX = MARGIN + columns.slice(0, monthsStart).reduce((sum, column) => sum + column.width, 0);
+    const monthsWidth = columns.slice(monthsStart).reduce((sum, column) => sum + column.width, 0);
+    doc.rect(monthsX, top, monthsWidth, HEADER_ROW).fillAndStroke(HEADER_FILL, BORDER);
+    cellText(doc, SEASONALITY_HEADER, monthsX, top, monthsWidth, HEADER_ROW, { bold: true, size: 6.4 });
+  }
+  return top + total;
+}
+
+function drawGroup(doc: PDFKit.PDFDocument, columns: Column[], group: Group, top: number) {
+  const height = group.rowHeight * group.lines.length;
+  const first = group.lines[0];
+  let x = MARGIN;
+  doc.lineWidth(0.5).strokeColor(BORDER);
+
+  for (const column of columns) {
+    if (column.merged) {
+      doc.rect(x, top, column.width, height).stroke();
+      cellText(doc, mergedValue(column.key, first), x, top, column.width, height, {
+        bold: column.bold,
+        align: column.key === 'n' ? 'left' : column.align,
+      });
+    } else {
+      group.lines.forEach((line, index) => {
+        const rowTop = top + index * group.rowHeight;
+        doc.rect(x, rowTop, column.width, group.rowHeight).stroke();
+        cellText(doc, rowValue(column.key, line), x, rowTop, column.width, group.rowHeight, {
+          bold: column.bold,
+          align: column.align,
+        });
+      });
+    }
+    x += column.width;
+  }
+}
+
+function cellText(
+  doc: PDFKit.PDFDocument,
+  value: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  options: { bold?: boolean; size?: number; align?: 'left' | 'center' | 'right' } = {},
+) {
+  if (!value) return;
+  const size = options.size ?? FONT_SIZE;
+  doc.font(options.bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(size).fillColor(INK);
+  const padding = 3;
+  const textWidth = width - padding * 2;
+  const textHeight = doc.heightOfString(value, { width: textWidth, align: options.align ?? 'center' });
+  const offset = Math.max(0, (height - textHeight) / 2);
+  doc.text(value, x + padding, y + offset, {
+    width: textWidth,
+    height: height - offset,
+    align: options.align ?? 'center',
+    lineGap: 0,
   });
 }
 
-function rowValues(line: ReturnType<typeof buildDocumentLines>[number]): Record<string, string> {
-  const values: Record<string, string> = {
-    n: line.firstOfItem ? String(line.itemNumber) : '',
-    description: line.firstOfItem ? line.description : '',
-    unit: line.firstOfItem ? line.unit : '',
-    estimated: line.estimatedQuantity === null ? '' : formatQty(line.estimatedQuantity),
-    unitPrice: line.unitPrice === null ? '' : formatQty(line.unitPrice),
-    totalPrice: line.totalPrice === null ? '' : formatQty(line.totalPrice),
-    cooperative: line.cooperative,
-    quote: line.quoteQuantity === null ? '' : formatQty(line.quoteQuantity),
-  };
-  line.months.forEach((marked, index) => {
-    values[`m${index}`] = marked ? 'X' : '';
-  });
-  return values;
+function mergedValue(key: string, line: DocumentLine): string {
+  switch (key) {
+    case 'n':
+      return String(line.itemNumber);
+    case 'description':
+      return line.description.toUpperCase();
+    case 'unit':
+      return line.unit.toUpperCase();
+    case 'estimated':
+      return line.estimatedQuantity === null ? '' : formatQty(line.estimatedQuantity);
+    case 'unitPrice':
+      return line.unitPrice === null ? '' : formatMoney(line.unitPrice);
+    case 'totalPrice':
+      return line.totalPrice === null ? '' : formatMoney(line.totalPrice);
+    default:
+      return '';
+  }
+}
+
+function rowValue(key: string, line: DocumentLine): string {
+  if (key === 'cooperative') return line.cooperative.toUpperCase();
+  if (key === 'quote') return line.quoteQuantity === null ? '' : formatQty(line.quoteQuantity);
+  if (key.startsWith('m')) return line.months[Number(key.slice(1))] ? 'X' : '';
+  return '';
+}
+
+function paintFooters(doc: PDFKit.PDFDocument, term: CooperationTerm, kind: DocumentKind) {
+  const range = doc.bufferedPageRange();
+  const label = kind === 'division' ? 'Planilha de divisão' : `Termo de Cooperação · versão ${term.version}`;
+  const issued = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeZone: 'America/Sao_Paulo' }).format(
+    term.signedAt && kind === 'term' ? new Date(term.signedAt) : new Date(),
+  );
+  const stamp = kind === 'term' && term.signedAt ? `firmado em ${issued}` : `gerado em ${issued}`;
+  for (let index = 0; index < range.count; index++) {
+    doc.switchToPage(range.start + index);
+    // Sem margem inferior o rodapé não força uma página nova.
+    doc.page.margins.bottom = 0;
+    const y = doc.page.height - MARGIN - 8;
+    const width = doc.page.width - MARGIN * 2;
+    doc
+      .font('Helvetica')
+      .fontSize(6.5)
+      .fillColor(MUTED)
+      .text(`${label} · ${stamp}`, MARGIN, y, { width, align: 'left', lineBreak: false })
+      .text(`Página ${index + 1} de ${range.count}`, MARGIN, y, { width, align: 'right', lineBreak: false });
+  }
+}
+
+function formatMoney(value: number): string {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 }

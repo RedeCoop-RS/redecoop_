@@ -25,6 +25,7 @@ import {
   ReleaseDivisionDto,
   ReplaceHospitalUnitsDto,
   SendCooperationTermDto,
+  SendDivisionDto,
   SetCalendarDto,
   SetCapacitiesDto,
   SetInterestsDto,
@@ -39,7 +40,7 @@ export class CooperationTermController {
   constructor(private readonly service: CooperationTermService) {}
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.COOPERATIVE)
+  @Roles(UserRole.ADMIN)
   list(
     @UserLogged() user: UserLoggedDto,
     @Query('page') page?: number,
@@ -56,7 +57,7 @@ export class CooperationTermController {
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.COOPERATIVE)
+  @Roles(UserRole.ADMIN)
   get(@UserLogged() user: UserLoggedDto, @Param('id', ParseIntPipe) id: number) {
     return this.service.get(actorFromUser(user), id);
   }
@@ -110,6 +111,17 @@ export class CooperationTermController {
     @Param('itemId', ParseIntPipe) itemId: number,
   ) {
     return this.service.deleteItem(actorFromUser(user), id, itemId);
+  }
+
+  @Post(':id/items/import/preview')
+  @Roles(UserRole.ADMIN)
+  @ApiFile('file')
+  previewImport(
+    @UserLogged() user: UserLoggedDto,
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.service.previewImport(actorFromUser(user), id, file);
   }
 
   @Post(':id/items/import')
@@ -194,17 +206,39 @@ export class CooperationTermController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: SendCooperationTermDto,
   ) {
-    return this.service.send(actorFromUser(user), id, dto.confirm);
+    return this.service.send(actorFromUser(user), id, dto.confirm, dto.message);
+  }
+
+  @Post(':id/send-division')
+  @Roles(UserRole.ADMIN)
+  sendDivision(
+    @UserLogged() user: UserLoggedDto,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: SendDivisionDto,
+  ) {
+    return this.service.sendDivision(actorFromUser(user), id, dto.confirm, dto.message);
+  }
+
+  @Get(':id/export/division/excel')
+  @Roles(UserRole.ADMIN)
+  exportDivisionExcel(@UserLogged() user: UserLoggedDto, @Param('id', ParseIntPipe) id: number) {
+    return this.service.exportDivision(actorFromUser(user), id, 'excel');
+  }
+
+  @Get(':id/export/division/pdf')
+  @Roles(UserRole.ADMIN)
+  exportDivisionPdf(@UserLogged() user: UserLoggedDto, @Param('id', ParseIntPipe) id: number) {
+    return this.service.exportDivision(actorFromUser(user), id, 'pdf');
   }
 
   @Get(':id/export/excel')
-  @Roles(UserRole.ADMIN, UserRole.COOPERATIVE)
+  @Roles(UserRole.ADMIN)
   exportExcel(@UserLogged() user: UserLoggedDto, @Param('id', ParseIntPipe) id: number) {
     return this.service.exportExcel(actorFromUser(user), id);
   }
 
   @Get(':id/export/pdf')
-  @Roles(UserRole.ADMIN, UserRole.COOPERATIVE)
+  @Roles(UserRole.ADMIN)
   exportPdf(@UserLogged() user: UserLoggedDto, @Param('id', ParseIntPipe) id: number) {
     return this.service.exportPdf(actorFromUser(user), id);
   }

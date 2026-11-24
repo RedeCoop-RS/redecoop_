@@ -2,6 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { EmailService } from '@/email/services/email.service';
 import { CooperationTermRecipient } from './entities/cooperationTermEmailLog.entity';
 
+export interface CooperationTermMailResult {
+  email: string;
+  name: string;
+  kind: CooperationTermRecipient['kind'];
+  sent: boolean;
+  detail: string;
+}
+
 export interface CooperationTermMailInput {
   recipients: CooperationTermRecipient[];
   subject: string;
@@ -25,24 +33,57 @@ export class CooperationTermMailer {
     return Boolean(process.env.SMTP_HOST?.trim());
   }
 
-  async dispatch(input: CooperationTermMailInput): Promise<{ sent: boolean; detail: string }> {
+  async dispatch(
+    input: CooperationTermMailInput,
+  ): Promise<{ sent: boolean; detail: string; results: CooperationTermMailResult[] }> {
     if (!this.isConfigured()) {
+      const detail =
+        'SMTP não configurado. Defina SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS e SMTP_FROM para enviar.';
       return {
         sent: false,
-        detail:
-          'SMTP não configurado. Defina SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS e SMTP_FROM para enviar. A integração já chama EmailService.sendEmail após a confirmação do administrador.',
+        detail,
+        results: input.recipients.map((recipient) => ({
+          email: recipient.email,
+          name: recipient.name,
+          kind: recipient.kind,
+          sent: false,
+          detail: 'SMTP não configurado.',
+        })),
       };
     }
 
+    const results: CooperationTermMailResult[] = [];
     for (const recipient of input.recipients) {
-      await this.emailService.sendEmail({
-        to: recipient.email,
-        subject: input.subject,
-        body: input.html,
-        attachments: input.attachments,
-      });
+      try {
+        await this.emailService.sendEmail({
+          to: recipient.email,
+          subject: input.subject,
+          body: input.html,
+          attachments: input.attachments,
+        });
+        results.push({
+          email: recipient.email,
+          name: recipient.name,
+          kind: recipient.kind,
+          sent: true,
+          detail: 'Enviado.',
+        });
+      } catch (error) {
+        results.push({
+          email: recipient.email,
+          name: recipient.name,
+          kind: recipient.kind,
+          sent: false,
+          detail: error instanceof Error ? error.message : 'Não enviado.',
+        });
+      }
     }
 
-    return { sent: true, detail: `Enviado para ${input.recipients.length} destinatário(s).` };
+    const sentCount = results.filter((result) => result.sent).length;
+    const sent = sentCount === results.length && results.length > 0;
+    const detail = sent
+      ? `Enviado para ${sentCount} destinatário(s).`
+      : `Enviado para ${sentCount} de ${results.length} destinatário(s).`;
+    return { sent, detail, results };
   }
 }

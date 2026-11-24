@@ -99,6 +99,32 @@ describe('MailboxService', () => {
     signatureHtml: '<p>RedeCoop</p>',
   };
 
+  it('abre a caixa a partir do SMTP já configurado', async () => {
+    process.env.SMTP_HOST = 'smtp.hostinger.com';
+    process.env.SMTP_PORT = '465';
+    process.env.SMTP_USER = 'contato@redecooprs.com.br';
+    process.env.SMTP_PASS = '"senha-da-caixa"';
+    process.env.SMTP_FROM = 'RedeCoop RS <no-reply@redecooprs.com.br>';
+    const view = await service.ensureEnvAccount();
+    expect(view).toBeUndefined();
+    expect(stored?.email).toBe('contato@redecooprs.com.br');
+    expect(stored?.username).toBe('contato@redecooprs.com.br');
+    expect(stored?.imapHost).toBe('imap.hostinger.com');
+    expect(stored?.smtpHost).toBe('smtp.hostinger.com');
+    expect(stored?.displayName).toBe('RedeCoop RS');
+    expect(stored?.passwordCipher).toBeTruthy();
+    expect(stored?.passwordCipher).not.toContain('senha-da-caixa');
+    expect(imap.test).toHaveBeenCalled();
+    expect(smtp.verify).toHaveBeenCalled();
+    await service.ensureEnvAccount();
+    expect(imap.test).toHaveBeenCalledTimes(1);
+    delete process.env.SMTP_HOST;
+    delete process.env.SMTP_PORT;
+    delete process.env.SMTP_USER;
+    delete process.env.SMTP_PASS;
+    delete process.env.SMTP_FROM;
+  });
+
   it('grava a senha cifrada e não a devolve', async () => {
     const view = await service.saveAccount(1, dto);
     expect(view.configured).toBe(true);

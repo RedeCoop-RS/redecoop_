@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { UserRole } from '@/User/entities/user.entity';
@@ -108,20 +108,10 @@ describe('CooperationTermService permissões', () => {
     service = moduleRef.get(CooperationTermService);
   });
 
-  it('cooperativa não vê rascunho', async () => {
-    terms.findOne.mockResolvedValue(draftTerm());
-    await expect(service.get(cooperative, 1)).rejects.toBeInstanceOf(NotFoundException);
-  });
-
-  it('cooperativa participante vê a divisão liberada, sem editar nem baixar o documento', async () => {
+  it('cooperativa não vê rascunho nem divisão liberada', async () => {
     terms.findOne.mockResolvedValue(draftTerm({ divisionReleased: true }));
-    terms.find.mockResolvedValue([draftTerm({ divisionReleased: true })]);
-    const detail = await service.get(cooperative, 1);
-    expect(detail.scope).toBe('division');
-    expect(detail.canEdit).toBe(false);
-    expect(detail.canDownload).toBe(false);
-    expect(detail.items[0].unitPrice).toBeNull();
-    expect(detail.items[0].allocations[0].quantity).toBe(900);
+    await expect(service.get(cooperative, 1)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(terms.findOne).not.toHaveBeenCalled();
   });
 
   it('admin edita o rascunho', async () => {

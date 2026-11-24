@@ -1,6 +1,7 @@
 import { apiFetchData } from '@/lib/api'
 import type {
   CooperationTermDetail,
+  CooperationTermImportPreview,
   CooperationTermInput,
   CooperationTermItemInput,
   CooperationTermSummary,
@@ -25,6 +26,7 @@ export interface TermSendResult {
   sent: boolean
   detail: string
   recipients: { email: string; name: string; kind: string }[]
+  results: { email: string; name: string; kind: string; sent: boolean; detail: string }[]
   skipped: { name: string; reason: string }[]
 }
 
@@ -77,6 +79,15 @@ export const cooperationTermService = {
     return apiFetchData<CooperationTermDetail>(`${base}/${id}/items/${itemId}`, { method: 'DELETE' })
   },
 
+  previewImport(id: number, file: File) {
+    const form = new FormData()
+    form.append('file', file)
+    return apiFetchData<CooperationTermImportPreview>(`${base}/${id}/items/import/preview`, {
+      method: 'POST',
+      body: form,
+    })
+  },
+
   importItems(id: number, file: File, replace: boolean) {
     const form = new FormData()
     form.append('file', file)
@@ -126,15 +137,27 @@ export const cooperationTermService = {
     return apiFetchData<CooperationTermDetail>(`${base}/${id}/new-version`, { method: 'POST' })
   },
 
-  send(id: number) {
+  send(id: number, message: string) {
     return apiFetchData<TermSendResult>(`${base}/${id}/send`, {
       method: 'POST',
-      body: JSON.stringify({ confirm: true }),
+      body: JSON.stringify({ confirm: true, message }),
+    })
+  },
+
+  sendDivision(id: number, message: string) {
+    return apiFetchData<TermSendResult>(`${base}/${id}/send-division`, {
+      method: 'POST',
+      body: JSON.stringify({ confirm: true, message }),
     })
   },
 
   async download(id: number, kind: 'pdf' | 'excel') {
     const file = await apiFetchData<TermFile>(`${base}/${id}/export/${kind}`)
+    saveBase64File(file)
+  },
+
+  async downloadDivision(id: number, kind: 'pdf' | 'excel') {
+    const file = await apiFetchData<TermFile>(`${base}/${id}/export/division/${kind}`)
     saveBase64File(file)
   },
 }

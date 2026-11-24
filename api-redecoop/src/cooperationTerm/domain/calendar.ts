@@ -56,11 +56,30 @@ export interface CalendarItemInput {
 }
 
 export interface CalendarAlert {
-  code: 'MONTH_WITHOUT_SUPPLIER' | 'QUOTA_WITHOUT_MONTHS' | 'ALLOCATION_SHORTFALL';
+  code: 'MONTH_WITHOUT_SUPPLIER' | 'MONTH_OVERLAP' | 'QUOTA_WITHOUT_MONTHS' | 'ALLOCATION_SHORTFALL';
   message: string;
   itemId: number;
-  month?: number;
+  months?: number[];
   cooperativeId?: number;
+}
+
+/** Ex.: [1, 3, 4, 5, 6, 9] → "JAN, MAR a JUN e SET". Sequências de 3+ meses viram faixa. */
+export function describeMonths(months: number[]): string {
+  const selected = normalizeMonths(months);
+  const parts: string[] = [];
+  let start = 0;
+  for (let index = 1; index <= selected.length; index++) {
+    if (index < selected.length && selected[index] === selected[index - 1] + 1) continue;
+    const run = selected.slice(start, index);
+    if (run.length >= 3) {
+      parts.push(`${MONTH_LABELS[run[0] - 1]} a ${MONTH_LABELS[run[run.length - 1] - 1]}`);
+    } else {
+      parts.push(...run.map((month) => MONTH_LABELS[month - 1]));
+    }
+    start = index;
+  }
+  if (parts.length <= 1) return parts.join('');
+  return `${parts.slice(0, -1).join(', ')} e ${parts[parts.length - 1]}`;
 }
 
 export function buildCalendarAlerts(items: CalendarItemInput[]): CalendarAlert[] {
@@ -82,16 +101,40 @@ export function buildCalendarAlerts(items: CalendarItemInput[]): CalendarAlert[]
 
     const suppliers = item.allocations.filter((allocation) => toMinor(allocation.quantity) > 0);
     if (suppliers.length > 0) {
+      const uncovered: number[] = [];
       for (let month = 1; month <= 12; month++) {
-        const covered = suppliers.some((allocation) => allocation.months.includes(month));
-        if (!covered) {
-          alerts.push({
-            code: 'MONTH_WITHOUT_SUPPLIER',
-            itemId: item.id,
-            month,
-            message: `${item.description}: ${MONTH_LABELS[month - 1]} sem nenhum fornecedor.`,
-          });
-        }
+        if (!suppliers.some((allocation) => allocation.months.includes(month))) uncovered.push(month);
+      }
+      if (uncovered.length === 12) {
+        alerts.push({
+          code: 'MONTH_WITHOUT_SUPPLIER',
+          itemId: item.id,
+          months: uncovered,
+          message: `${item.description}: nenhum mês tem fornecedor marcado.`,
+        });
+      } else if (uncovered.length > 0) {
+        const count = uncovered.length === 1 ? '1 mês' : `${uncovered.length} meses`;
+        alerts.push({
+          code: 'MONTH_WITHOUT_SUPPLIER',
+          itemId: item.id,
+          months: uncovered,
+          message: `${item.description}: sem fornecedor em ${describeMonths(uncovered)} (${count}).`,
+        });
+      }
+
+      // No termo oficial as cooperativas se revezam: cada mês tem um fornecedor por item.
+      const overlap: number[] = [];
+      for (let month = 1; month <= 12; month++) {
+        const count = suppliers.filter((allocation) => allocation.months.includes(month)).length;
+        if (count > 1) overlap.push(month);
+      }
+      if (overlap.length > 0) {
+        alerts.push({
+          code: 'MONTH_OVERLAP',
+          itemId: item.id,
+          months: overlap,
+          message: `${item.description}: mais de uma cooperativa entrega em ${describeMonths(overlap)}.`,
+        });
       }
     }
 

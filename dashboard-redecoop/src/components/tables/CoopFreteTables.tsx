@@ -90,7 +90,7 @@ export function DriversTable({
   const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
-    if (isAdmin) cooperativeService.select().then(setCoops)
+    if (isAdmin) cooperativeService.select().then(setCoops).catch(() => setCoops([]))
   }, [isAdmin])
 
   const reload = () => setReloadKey((k) => k + 1)
@@ -317,7 +317,7 @@ export function VehiclesTable({
   const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
-    if (isAdmin) cooperativeService.select().then(setCoops)
+    if (isAdmin) cooperativeService.select().then(setCoops).catch(() => setCoops([]))
   }, [isAdmin])
 
   const reload = () => setReloadKey((k) => k + 1)

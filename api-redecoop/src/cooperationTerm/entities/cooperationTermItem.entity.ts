@@ -21,6 +21,10 @@ export class CooperationTermItem {
   @Column({ type: 'int', default: 0 })
   position: number;
 
+  /** Número do item no edital. O termo firmado preserva essa numeração, inclusive com lacunas. */
+  @Column({ type: 'int', nullable: true })
+  itemNumber: number | null;
+
   @Column({ type: 'varchar', length: 500 })
   description: string;
 

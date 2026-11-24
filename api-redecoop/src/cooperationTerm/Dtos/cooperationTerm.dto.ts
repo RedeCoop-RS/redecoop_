@@ -83,6 +83,12 @@ export class HospitalQuantityDto {
 }
 
 export class CooperationTermItemDto {
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsInt()
+  @Min(1)
+  itemNumber?: number | null;
+
   @IsString()
   @IsNotEmpty()
   @MaxLength(500)
@@ -200,4 +206,19 @@ export class ReleaseDivisionDto {
 export class SendCooperationTermDto {
   @IsBoolean()
   confirm: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  message?: string;
+}
+
+export class SendDivisionDto {
+  @IsBoolean()
+  confirm: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  message?: string;
 }

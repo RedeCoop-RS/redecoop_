@@ -30,6 +30,7 @@ export interface CooperationTermAllocation {
 export interface CooperationTermItem {
   id: number
   position: number
+  itemNumber: number
   description: string
   unit: string
   estimatedQuantity: number
@@ -44,7 +45,7 @@ export interface CalendarAlert {
   code: string
   message: string
   itemId: number
-  month?: number
+  months?: number[]
   cooperativeId?: number
 }
 
@@ -86,6 +87,7 @@ export interface CooperationTermDetail {
   recipientsPreview: CooperationTermRecipient[]
   emailLogs: {
     id: number
+    kind: 'TERM' | 'DIVISION'
     status: string
     detail: string | null
     createdAt: string
@@ -101,7 +103,23 @@ export interface CooperationTermInput {
   model: CooperationTermModel
 }
 
+export interface CooperationTermImportPreview {
+  fileName: string
+  items: {
+    itemNumber: number | null
+    description: string
+    unit: string
+    estimatedQuantity: number | null
+    unitPrice: number | null
+    totalPrice: number | null
+    hospitalQuantities: { hospitalUnitName: string; quantity: number }[]
+  }[]
+  hospitalUnits: string[]
+  missingQuantity: string[]
+}
+
 export interface CooperationTermItemInput {
+  itemNumber?: number | null
   description: string
   unit: string
   estimatedQuantity?: number

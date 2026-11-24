@@ -25,8 +25,9 @@ import {
 import { assertCanMutate, assertCanReadModule, resolveTermAccess } from './domain/access';
 import { normalizeMonths } from './domain/calendar';
 import { divideQuantity } from './domain/division';
+import { divisionMessage, messageToHtml, termMessage } from './domain/message';
 import { asNumber } from './domain/quantity';
-import { ImportedItem, parseSpreadsheet, parseXlsx } from './domain/spreadsheet';
+import { ImportedItem, ImportPreview, parseSpreadsheet, parseXlsx, summarizeImport } from './domain/spreadsheet';
 import { CooperationTermAllocation } from './entities/cooperationTermAllocation.entity';
 import { CooperationTerm } from './entities/cooperationTerm.entity';
 import {
@@ -39,6 +40,7 @@ import { CooperationTermItem } from './entities/cooperationTermItem.entity';
 import { CooperationTermItemHospitalQty } from './entities/cooperationTermItemHospitalQty.entity';
 import { CooperationTermSupplyMonth } from './entities/cooperationTermSupplyMonth.entity';
 import {
+  CooperationTermEmailKind,
   CooperationTermEmailStatus,
   CooperationTermModel,
   CooperationTermStatus,
@@ -246,6 +248,26 @@ export class CooperationTermService {
     return this.get(actor, id);
   }
 
+  async previewImport(
+    actor: CooperationActor,
+    id: number,
+    file: Express.Multer.File | undefined,
+  ): Promise<ImportPreview> {
+    assertCanMutate(actor.role);
+    if (!file?.path) throw new BadRequestException('Envie um arquivo .xlsx ou .csv');
+    try {
+      await this.requireDraft(id);
+      const buffer = await fs.readFile(file.path);
+      const filename = file.originalname || file.filename || 'planilha';
+      const imported = filename.toLowerCase().endsWith('.xlsx')
+        ? await parseXlsx(buffer)
+        : parseSpreadsheet(buffer, filename);
+      return summarizeImport(filename, imported);
+    } finally {
+      await fs.unlink(file.path).catch(() => undefined);
+    }
+  }
+
   async setInterests(
     actor: CooperationActor,
     id: number,
@@ -304,12 +326,12 @@ export class CooperationTermService {
     return this.get(actor, copyId);
   }
 
-  async send(actor: CooperationActor, id: number, confirm: boolean) {
+  async send(actor: CooperationActor, id: number, confirm: boolean, message?: string) {
     assertCanMutate(actor.role);
     if (confirm !== true) {
       throw new BadRequestException('Confirme o envio do termo para continuar.');
     }
-    return this.deliver(actor, id);
+    return this.deliver(actor, id, message);
   }
 
   async exportExcel(actor: CooperationActor, id: number) {
@@ -320,6 +342,24 @@ export class CooperationTermService {
   async exportPdf(actor: CooperationActor, id: number) {
     const term = await this.loadReadable(actor, id);
     return this.exporter.pdf(term);
+  }
+
+  /** Planilha de divisão (sem calendário), usada pelas cooperativas no projeto de venda. */
+  async exportDivision(actor: CooperationActor, id: number, format: 'pdf' | 'excel') {
+    assertCanMutate(actor.role);
+    const term = await this.load(id);
+    if (!term) throw new NotFoundException('Termo de cooperação não encontrado');
+    return format === 'pdf'
+      ? this.exporter.pdf(term, 'division')
+      : this.exporter.excel(term, 'division');
+  }
+
+  async sendDivision(actor: CooperationActor, id: number, confirm: boolean, message?: string) {
+    assertCanMutate(actor.role);
+    if (confirm !== true) {
+      throw new BadRequestException('Confirme o envio da planilha de divisão para continuar.');
+    }
+    return this.deliverDivision(actor, id, message);
   }
 
   private accessFor(actor: CooperationActor, term: CooperationTerm) {
@@ -453,10 +493,13 @@ export class CooperationTermService {
     const quantity = this.quantityFor(term.model, dto);
     const price = resolvePrices(quantity, dto.unitPrice, dto.totalPrice);
     const position = (term.items ?? []).reduce((max, item) => Math.max(max, item.position), 0) + 1;
+    const itemNumber = dto.itemNumber ?? nextItemNumber(term.items ?? []);
+    assertFreeItemNumber(term.items ?? [], itemNumber);
     const item = await this.items.save(
       this.items.create({
         termId: term.id,
         position,
+        itemNumber,
         description: dto.description.trim(),
         unit: dto.unit.trim(),
         estimatedQuantity: quantity,
@@ -481,12 +524,17 @@ export class CooperationTermService {
     if (!item) throw new NotFoundException('Item não encontrado');
     const quantity = this.quantityFor(term.model, dto);
     const price = resolvePrices(quantity, dto.unitPrice, dto.totalPrice);
+    if (dto.itemNumber !== undefined && dto.itemNumber !== null) {
+      assertFreeItemNumber(term.items ?? [], dto.itemNumber, item.id);
+      item.itemNumber = dto.itemNumber;
+    }
     item.description = dto.description.trim();
     item.unit = dto.unit.trim();
     item.estimatedQuantity = quantity;
     item.unitPrice = price.unitPrice;
     item.totalPrice = price.totalPrice;
     await this.items.update(item.id, {
+      itemNumber: item.itemNumber,
       description: item.description,
       unit: item.unit,
       estimatedQuantity: item.estimatedQuantity,
@@ -530,11 +578,17 @@ export class CooperationTermService {
       term.items = [];
     }
     let position = (term.items ?? []).reduce((max, item) => Math.max(max, item.position), 0);
+    const numbered: Pick<CooperationTermItem, 'id' | 'itemNumber' | 'position'>[] = [
+      ...(term.items ?? []),
+    ];
     for (const row of imported) {
       if (row.estimatedQuantity === null) {
         throw new BadRequestException(`O item "${row.description}" está sem quantidade.`);
       }
       position += 1;
+      const itemNumber = row.itemNumber ?? nextItemNumber(numbered);
+      assertFreeItemNumber(numbered, itemNumber);
+      numbered.push({ id: 0, itemNumber, position });
       const hospitalQuantities = await this.hospitalQuantitiesForImport(term, row);
       const estimated =
         term.model === CooperationTermModel.GHC && hospitalQuantities.length
@@ -545,6 +599,7 @@ export class CooperationTermService {
         this.items.create({
           termId: term.id,
           position,
+          itemNumber,
           description: row.description.trim(),
           unit: row.unit.trim() || 'KG',
           estimatedQuantity: estimated,
@@ -764,6 +819,7 @@ export class CooperationTermService {
         this.items.create({
           termId: copy.id,
           position: item.position,
+          itemNumber: item.itemNumber,
           description: item.description,
           unit: item.unit,
           estimatedQuantity: asNumber(item.estimatedQuantity),
@@ -818,46 +874,93 @@ export class CooperationTermService {
   }
 
   @Transactional()
-  private async deliver(actor: CooperationActor, id: number) {
+  private async deliver(actor: CooperationActor, id: number, message?: string) {
     const term = await this.load(id);
     if (!term) throw new NotFoundException('Termo de cooperação não encontrado');
     if (term.status !== CooperationTermStatus.SIGNED) {
       throw new BadRequestException('Firme o termo antes de enviar.');
     }
-    const { recipients, skipped } = collectRecipients(term);
+    const { recipients, skipped } = collectRecipients(term, true);
     if (!recipients.length) {
       throw new BadRequestException(
         'Nenhum destinatário com e-mail. Confira o cadastro das cooperativas e o e-mail da instituição compradora.',
       );
     }
     const [pdf, excel] = await Promise.all([this.exporter.pdf(term), this.exporter.excel(term)]);
-    const result = await this.mailer.dispatch({
+    return this.dispatchAndLog(actor, term, CooperationTermEmailKind.TERM, {
       recipients,
+      skipped,
       subject: `Termo de Cooperação firmado — ${term.name} (Processo ${term.processNumber})`,
-      html: `<p>Olá,</p><p>A RedeCoop encaminha o termo de cooperação firmado <strong>${escapeHtml(term.name)}</strong>, processo ${escapeHtml(term.processNumber)}, da instituição ${escapeHtml(term.buyerInstitution)}.</p><p>O documento segue em anexo, em PDF e Excel.</p>`,
-      attachments: [
-        {
-          filename: pdf.filename,
-          content: Buffer.from(pdf.contentBase64, 'base64'),
-          contentType: pdf.mimeType,
-        },
-        {
-          filename: excel.filename,
-          content: Buffer.from(excel.contentBase64, 'base64'),
-          contentType: excel.mimeType,
-        },
-      ],
+      html: messageToHtml(message?.trim() || termMessage(term)),
+      files: [pdf, excel],
+    });
+  }
+
+  @Transactional()
+  private async deliverDivision(actor: CooperationActor, id: number, message?: string) {
+    const term = await this.load(id);
+    if (!term) throw new NotFoundException('Termo de cooperação não encontrado');
+    if (!(term.items ?? []).some((item) => (item.allocations ?? []).length)) {
+      throw new BadRequestException('Marque o interesse das cooperativas antes de enviar a divisão.');
+    }
+    const { recipients, skipped } = collectRecipients(term, false);
+    if (!recipients.length) {
+      throw new BadRequestException(
+        'Nenhuma cooperativa participante tem e-mail cadastrado. Confira o cadastro das cooperativas.',
+      );
+    }
+    const [pdf, excel] = await Promise.all([
+      this.exporter.pdf(term, 'division'),
+      this.exporter.excel(term, 'division'),
+    ]);
+    return this.dispatchAndLog(actor, term, CooperationTermEmailKind.DIVISION, {
+      recipients,
+      skipped,
+      subject: `Planilha de divisão — ${term.name} (Processo ${term.processNumber})`,
+      html: messageToHtml(message?.trim() || divisionMessage(term)),
+      files: [pdf, excel],
+    });
+  }
+
+  private async dispatchAndLog(
+    actor: CooperationActor,
+    term: CooperationTerm,
+    kind: CooperationTermEmailKind,
+    input: {
+      recipients: CooperationTermRecipient[];
+      skipped: { name: string; reason: string }[];
+      subject: string;
+      html: string;
+      files: { filename: string; mimeType: string; contentBase64: string }[];
+    },
+  ) {
+    const result = await this.mailer.dispatch({
+      recipients: input.recipients,
+      subject: input.subject,
+      html: input.html,
+      attachments: input.files.map((file) => ({
+        filename: file.filename,
+        content: Buffer.from(file.contentBase64, 'base64'),
+        contentType: file.mimeType,
+      })),
     });
     await this.emailLogs.save(
       this.emailLogs.create({
         termId: term.id,
+        kind,
         sentByUserId: actor.userId,
         status: result.sent ? CooperationTermEmailStatus.SENT : CooperationTermEmailStatus.SKIPPED,
-        recipients,
+        recipients: input.recipients,
         detail: result.detail,
       }),
     );
-    return { sent: result.sent, detail: result.detail, recipients, skipped };
+    return {
+      sent: result.sent,
+      detail: result.detail,
+      recipients: input.recipients,
+      results: result.results,
+      skipped: input.skipped,
+    };
   }
 
   private async rebuildAllocations(term: CooperationTerm): Promise<void> {
@@ -1039,7 +1142,10 @@ function participantIds(term: CooperationTerm): number[] {
   return [...ids];
 }
 
-function collectRecipients(term: CooperationTerm): {
+function collectRecipients(
+  term: CooperationTerm,
+  includeBuyer: boolean,
+): {
   recipients: CooperationTermRecipient[];
   skipped: { name: string; reason: string }[];
 } {
@@ -1056,12 +1162,26 @@ function collectRecipients(term: CooperationTerm): {
       else recipients.push({ email, name, kind: 'cooperative' });
     }
   }
+  if (!includeBuyer) return { recipients, skipped };
   if (term.buyerEmail?.trim()) {
     recipients.push({ email: term.buyerEmail.trim(), name: term.buyerInstitution, kind: 'buyer' });
   } else {
     skipped.push({ name: term.buyerInstitution, reason: 'Instituição sem e-mail' });
   }
   return { recipients, skipped };
+}
+
+type NumberedItem = Pick<CooperationTermItem, 'id' | 'itemNumber' | 'position'>;
+
+function nextItemNumber(items: NumberedItem[]): number {
+  return items.reduce((max, item) => Math.max(max, item.itemNumber ?? item.position), 0) + 1;
+}
+
+function assertFreeItemNumber(items: NumberedItem[], itemNumber: number, exceptId?: number): void {
+  const taken = items.some(
+    (item) => item.id !== exceptId && (item.itemNumber ?? item.position) === itemNumber,
+  );
+  if (taken) throw new BadRequestException(`Já existe o item nº ${itemNumber} neste termo.`);
 }
 
 function resolvePrices(
@@ -1094,12 +1214,4 @@ function fold(value: string): string {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim();
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }

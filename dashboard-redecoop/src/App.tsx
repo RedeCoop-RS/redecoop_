@@ -127,8 +127,6 @@ export default function App() {
                     <Route path="cooperativas" element={<CooperativesPage />} />
                     <Route path="negocios" element={<BusinessCooperativePage />} />
                     <Route path="compras-coletivas" element={<CollectivePurchasePage />} />
-                    <Route path="termos-de-cooperacao" element={<CooperationTermsPage />} />
-                    <Route path="termos-de-cooperacao/:id" element={<CooperationTermPage />} />
                     <Route path="viagens-disponiveis" element={<TravelsPage />} />
                     <Route path="minhas-viagens" element={<MyTravelsPage />} />
                     <Route path="mensagens" element={<MessagesPage />} />

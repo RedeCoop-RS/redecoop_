@@ -6,11 +6,13 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { ConfirmModal, AlertModal } from '@/components/modals/ConfirmModal'
+import { ConfirmModal, AlertModal, type ConfirmRecipient } from '@/components/modals/ConfirmModal'
 
 interface ConfirmOptions {
   title?: string
   message: string
+  recipients?: ConfirmRecipient[]
+  omitted?: string[]
   confirmLabel?: string
   cancelLabel?: string
   variant?: 'danger' | 'primary'
@@ -69,6 +71,8 @@ export function ModalProvider({ children }: { children: ReactNode }) {
         <ConfirmModal
           title={confirmState.title ?? 'Confirmar'}
           message={confirmState.message}
+          recipients={confirmState.recipients}
+          omitted={confirmState.omitted}
           confirmLabel={confirmState.confirmLabel}
           cancelLabel={confirmState.cancelLabel}
           variant={confirmState.variant}

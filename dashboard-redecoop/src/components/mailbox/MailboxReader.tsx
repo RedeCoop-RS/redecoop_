@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import {
-  Archive,
   ChevronLeft,
   Code2,
   Forward,
   ImageOff,
   Inbox,
+  Mail,
   MailCheck,
+  MailOpen,
   MoreHorizontal,
   Paperclip,
   Printer,
@@ -14,7 +15,9 @@ import {
   ReplyAll,
   RotateCcw,
   ShieldAlert,
-  Star,
+  Flag,
+  Download,
+  Eye,
   Trash2,
 } from 'lucide-react'
 import type { MailFolder, MailMessage } from '@/services/mailbox.service'
@@ -27,13 +30,13 @@ interface MailboxReaderProps {
   onBack: () => void
   onReply: (all?: boolean) => void
   onForward: (asAttachment?: boolean) => void
-  onArchive: () => void
   onSpam: () => void
   onNotSpam: () => void
   onDelete: () => void
   onRestore: () => void
   onStar: () => void
   onUnread: () => void
+  onRead: () => void
   onMove: (folder: string) => void
   onLoadImages: () => void
   onOpenThread: (folder: string, uid: number) => void
@@ -53,7 +56,11 @@ export function MailboxReader(props: MailboxReaderProps) {
   if (!message) {
     return (
       <section className="mailbox-reader">
-        <p className="mailbox-empty">Selecione uma mensagem para ler.</p>
+        <div className="mailbox-hero-empty">
+          <span className="mailbox-hero-empty__mark" aria-hidden="true"><Mail size={22} /></span>
+          <strong>Escolha uma mensagem</strong>
+          <p>A leitura abre aqui. Atalho <kbd>?</kbd> mostra os comandos da caixa.</p>
+        </div>
       </section>
     )
   }
@@ -74,47 +81,45 @@ export function MailboxReader(props: MailboxReaderProps) {
 
   return (
     <section className="mailbox-reader" aria-label="Mensagem">
-      <header className="mailbox-reader__bar">
-        <button type="button" className="mailbox-back" onClick={props.onBack} aria-label="Voltar para a lista">
-          <ChevronLeft size={18} />
-        </button>
-        <button type="button" onClick={() => props.onReply(false)}><Reply size={16} /> Responder</button>
-        <button type="button" onClick={() => props.onReply(true)}><ReplyAll size={16} /> Responder a todos</button>
-        <button type="button" onClick={() => props.onForward(false)}><Forward size={16} /> Encaminhar</button>
-        <button type="button" onClick={props.onArchive}><Archive size={16} /> Arquivar</button>
-        {hasSpam && !inSpam && (
-          <button type="button" onClick={props.onSpam}><ShieldAlert size={16} /> Spam</button>
-        )}
-        {inSpam && <button type="button" onClick={props.onNotSpam}><Inbox size={16} /> Não é spam</button>}
-        {inTrash && (
-          <button type="button" onClick={props.onRestore}><RotateCcw size={16} /> Restaurar</button>
-        )}
-        <button type="button" onClick={props.onDelete}><Trash2 size={16} /> {inTrash ? 'Excluir de vez' : 'Excluir'}</button>
-        <button type="button" onClick={props.onStar} aria-pressed={message.flagged}><Star size={16} fill={message.flagged ? 'currentColor' : 'none'} /> {message.flagged ? 'Com estrela' : 'Estrela'}</button>
-        <button type="button" onClick={props.onUnread}>Não lida</button>
-        <label className="mailbox-move">
-          Mover
-          <select defaultValue="" aria-label="Mover para a pasta" onChange={(event) => { if (event.target.value) props.onMove(event.target.value); event.target.value = '' }}>
-            <option value="">Pasta…</option>
+      <header className="mailbox-readbar">
+        <div className="mailbox-readbar__group">
+          <button type="button" className="mailbox-tool" onClick={props.onBack} aria-label="Voltar para a lista" title="Voltar">
+            <ChevronLeft size={18} />
+          </button>
+          <button type="button" className="mailbox-tool mailbox-tool--text" onClick={() => props.onReply(false)}><Reply size={15} /> Responder</button>
+          <button type="button" className="mailbox-tool mailbox-tool--text" onClick={() => props.onReply(true)}><ReplyAll size={15} /> A todos</button>
+          <button type="button" className="mailbox-tool mailbox-tool--text" onClick={() => props.onForward(false)}><Forward size={15} /> Encaminhar</button>
+        </div>
+        <div className="mailbox-readbar__group">
+          <button type="button" className="mailbox-tool" onClick={props.onDelete} title={inTrash ? 'Excluir de vez' : 'Excluir'} aria-label={inTrash ? 'Excluir de vez' : 'Excluir'}><Trash2 size={16} /></button>
+          <button type="button" className={`mailbox-tool ${message.flagged ? 'is-star' : ''}`} aria-pressed={message.flagged} onClick={props.onStar} title={message.flagged ? 'Sinalizada' : 'Sinalizar'} aria-label={message.flagged ? 'Remover sinalização' : 'Sinalizar'}><Flag size={16} fill={message.flagged ? 'currentColor' : 'none'} /></button>
+          <button type="button" className="mailbox-tool" onClick={() => (message.seen ? props.onUnread() : props.onRead())} title={message.seen ? 'Marcar como não lida' : 'Marcar como lida'} aria-label={message.seen ? 'Marcar como não lida' : 'Marcar como lida'}>{message.seen ? <Mail size={16} /> : <MailOpen size={16} />}</button>
+          {hasSpam && !inSpam && <button type="button" className="mailbox-tool" onClick={props.onSpam} title="Spam" aria-label="Spam"><ShieldAlert size={16} /></button>}
+          {inSpam && <button type="button" className="mailbox-tool" onClick={props.onNotSpam} title="Não é spam" aria-label="Não é spam"><Inbox size={16} /></button>}
+          {inTrash && <button type="button" className="mailbox-tool" onClick={props.onRestore} title="Restaurar" aria-label="Restaurar"><RotateCcw size={16} /></button>}
+          <select className="mailbox-readbar__move" defaultValue="" aria-label="Mover para a pasta" onChange={(event) => { if (event.target.value) props.onMove(event.target.value); event.target.value = '' }}>
+            <option value="">Mover</option>
             {props.folders.filter((folder) => folder.selectable && folder.path !== message.folder).map((folder) => (
               <option key={folder.path} value={folder.path}>{folderLabel(folder)}</option>
             ))}
           </select>
-        </label>
-        <div className="mailbox-more">
-          <button type="button" aria-label="Mais ações" aria-expanded={moreOpen} onClick={() => setMoreOpen((value) => !value)}><MoreHorizontal size={16} /></button>
-          {moreOpen && (
-            <div className="mailbox-more__menu" role="menu" onClick={() => setMoreOpen(false)}>
-              <button type="button" role="menuitem" onClick={() => props.onForward(true)}><Forward size={15} /> Encaminhar como anexo</button>
-              <button type="button" role="menuitem" onClick={props.onPrint}><Printer size={15} /> Imprimir</button>
-              <button type="button" role="menuitem" onClick={props.onSource}><Code2 size={15} /> Ver original</button>
-            </div>
-          )}
+          <div className="mailbox-more">
+            <button type="button" className="mailbox-tool" aria-label="Mais ações" title="Mais ações" aria-expanded={moreOpen} onClick={() => setMoreOpen((value) => !value)}><MoreHorizontal size={16} /></button>
+            {moreOpen && (
+              <div className="mailbox-more__menu" role="menu" onClick={() => setMoreOpen(false)}>
+                <button type="button" role="menuitem" onClick={() => props.onForward(true)}><Forward size={15} /> Encaminhar como anexo</button>
+                <button type="button" role="menuitem" onClick={props.onPrint}><Printer size={15} /> Imprimir</button>
+                <button type="button" role="menuitem" onClick={props.onSource}><Code2 size={15} /> Ver original</button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
       <div className="mailbox-reader__body">
         <h2>
+          {!message.seen && <span className="mailbox-status is-unread">Não lida</span>}
+          {message.flagged && <span className="mailbox-tag mailbox-tag--star">Sinalizada</span>}
           {message.priority === 'high' && <span className="mailbox-tag mailbox-tag--high">Prioridade alta</span>}
           {message.priority === 'low' && <span className="mailbox-tag">Prioridade baixa</span>}
           {message.subject || '(sem assunto)'}
@@ -124,8 +129,8 @@ export function MailboxReader(props: MailboxReaderProps) {
           <span>{message.from?.address}</span>
           <time>{formatFullDate(message.date)}</time>
         </p>
-        <p className="mailbox-reader__people">Para: {(message.to || []).map(formatAddress).join(', ') || '—'}</p>
-        {message.cc.length > 0 && <p className="mailbox-reader__people">Cc: {message.cc.map(formatAddress).join(', ')}</p>}
+        <p className="mailbox-reader__people"><b>Para</b> {(message.to || []).map(formatAddress).join(', ') || '—'}</p>
+        {message.cc.length > 0 && <p className="mailbox-reader__people"><b>Cc</b> {message.cc.map(formatAddress).join(', ')}</p>}
         {message.listUnsubscribe && (
           <p className="mailbox-reader__people">
             Lista de e-mails. <button type="button" className="mailbox-link" onClick={props.onUnsubscribe}>Cancelar inscrição</button>
@@ -166,19 +171,29 @@ export function MailboxReader(props: MailboxReaderProps) {
         )}
 
         {files.length > 0 && (
-          <ul className="mailbox-files" aria-label="Anexos">
-            {files.map((file) => (
-              <li key={file.index}>
-                <Paperclip size={14} />
-                <span>{file.filename}</span>
-                <small>{formatBytes(file.size)}</small>
-                {PREVIEWABLE.test(file.contentType) && (
-                  <button type="button" onClick={() => props.onAttachment(file.index, file.filename, file.contentType, true)}>Ver</button>
-                )}
-                <button type="button" onClick={() => props.onAttachment(file.index, file.filename, file.contentType, false)}>Baixar</button>
-              </li>
-            ))}
-          </ul>
+          <section className="mailbox-attach" aria-label="Anexos">
+            <header>
+              <Paperclip size={14} />
+              <span>{files.length === 1 ? '1 anexo' : `${files.length} anexos`}</span>
+            </header>
+            <ul>
+              {files.map((file) => (
+                <li key={file.index}>
+                  <span className="mailbox-attach__mark" aria-hidden="true"><Paperclip size={16} /></span>
+                  <span className="mailbox-attach__meta">
+                    <strong>{file.filename}</strong>
+                    <small>{formatBytes(file.size)}</small>
+                  </span>
+                  <span className="mailbox-attach__actions">
+                    {PREVIEWABLE.test(file.contentType) && (
+                      <button type="button" onClick={() => props.onAttachment(file.index, file.filename, file.contentType, true)}><Eye size={14} /> Ver</button>
+                    )}
+                    <button type="button" onClick={() => props.onAttachment(file.index, file.filename, file.contentType, false)}><Download size={14} /> Baixar</button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         {message.thread.length > 1 && (

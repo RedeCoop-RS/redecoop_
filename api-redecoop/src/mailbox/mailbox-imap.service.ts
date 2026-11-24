@@ -73,6 +73,8 @@ async function streamToBuffer(stream: Readable, maxBytes: number): Promise<Buffe
 @Injectable()
 export class MailboxImapService {
   private readonly logger = new Logger(MailboxImapService.name);
+  private readonly sessions = new Map<string, { client: ImapFlow; timer?: NodeJS.Timeout }>();
+  private readonly lane = new Map<string, Promise<unknown>>();
 
   createClient(creds: MailboxCredentials, idle = false): ImapFlow {
     const options: ImapFlowOptions = {
@@ -91,21 +93,64 @@ export class MailboxImapService {
   }
 
   async withClient<T>(creds: MailboxCredentials, fn: (client: ImapFlow) => Promise<T>): Promise<T> {
+    const key = this.sessionKey(creds);
+    const previous = this.lane.get(key) ?? Promise.resolve();
+    const run = previous.then(
+      () => this.useSession(creds, key, fn),
+      () => this.useSession(creds, key, fn),
+    );
+    this.lane.set(key, run);
+    return run;
+  }
+
+  private sessionKey(creds: MailboxCredentials) {
+    return `${creds.imapHost}:${creds.imapPort}:${creds.username}`;
+  }
+
+  private async useSession<T>(
+    creds: MailboxCredentials,
+    key: string,
+    fn: (client: ImapFlow) => Promise<T>,
+  ): Promise<T> {
+    const client = await this.borrow(creds, key);
+    try {
+      return await fn(client);
+    } finally {
+      this.hold(key, client);
+    }
+  }
+
+  private async borrow(creds: MailboxCredentials, key: string) {
+    const current = this.sessions.get(key);
+    if (current?.client.usable) {
+      if (current.timer) clearTimeout(current.timer);
+      return current.client;
+    }
+    if (current) {
+      current.client.close();
+      this.sessions.delete(key);
+    }
     const client = this.createClient(creds);
     client.on('error', (error) => {
       this.logger.warn(`IMAP: ${error.message}`);
     });
-    try {
-      await client.connect();
-      return await fn(client);
-    } finally {
-      try {
-        if (client.usable) await client.logout();
-        else client.close();
-      } catch {
-        client.close();
-      }
-    }
+    client.on('close', () => {
+      if (this.sessions.get(key)?.client === client) this.sessions.delete(key);
+    });
+    await client.connect();
+    this.sessions.set(key, { client });
+    return client;
+  }
+
+  private hold(key: string, client: ImapFlow) {
+    const slot = this.sessions.get(key);
+    if (!slot || slot.client !== client) return;
+    if (slot.timer) clearTimeout(slot.timer);
+    slot.timer = setTimeout(() => {
+      if (this.sessions.get(key)?.client !== client) return;
+      this.sessions.delete(key);
+      client.logout().catch(() => client.close());
+    }, 25000);
   }
 
   async test(creds: MailboxCredentials): Promise<void> {

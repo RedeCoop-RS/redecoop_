@@ -24,7 +24,7 @@ describe('permissões do termo de cooperação', () => {
     expect(() => assertCanMutate(UserRole.COOPERATIVE)).toThrow(ForbiddenException);
   });
 
-  it('cooperativa participante vê só a divisão quando ela foi liberada', () => {
+  it('cooperativa não vê a divisão, mesmo liberada', () => {
     const access = resolveTermAccess({
       role: UserRole.COOPERATIVE,
       cooperativeId: 10,
@@ -32,10 +32,11 @@ describe('permissões do termo de cooperação', () => {
       divisionReleased: true,
     });
 
-    expect(access.canView).toBe(true);
+    expect(access.canView).toBe(false);
     expect(access.canMutate).toBe(false);
     expect(access.canDownload).toBe(false);
-    expect(access.scope).toBe('division');
+    expect(access.scope).toBe('none');
+    expect(() => assertCanReadModule(UserRole.COOPERATIVE)).toThrow(ForbiddenException);
   });
 
   it('cooperativa que não participa não vê a divisão liberada de um rascunho', () => {
@@ -49,7 +50,7 @@ describe('permissões do termo de cooperação', () => {
     expect(access.canView).toBe(false);
   });
 
-  it('cooperativa vê o termo firmado inteiro, sem editar', () => {
+  it('cooperativa não vê o termo firmado', () => {
     const access = resolveTermAccess({
       role: UserRole.COOPERATIVE,
       cooperativeId: 99,
@@ -58,10 +59,9 @@ describe('permissões do termo de cooperação', () => {
       participantCooperativeIds: [10],
     });
 
-    expect(access.canView).toBe(true);
-    expect(access.canMutate).toBe(false);
-    expect(access.canDownload).toBe(true);
-    expect(access.scope).toBe('full');
+    expect(access.canView).toBe(false);
+    expect(access.canDownload).toBe(false);
+    expect(access.scope).toBe('none');
   });
 
   it('admin edita rascunho e o termo firmado fica somente leitura', () => {

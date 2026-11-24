@@ -68,7 +68,7 @@ export function useMailbox() {
   const [account, setAccount] = useState<MailboxAccountView | null>(null)
   const [folders, setFolders] = useState<MailFolder[]>([])
   const [folder, setFolder] = useState<MailFolder | null>(null)
-  const [view, setView] = useState<'folder' | 'scheduled'>('folder')
+  const [view, setView] = useState<'folder' | 'scheduled' | 'drafts'>('folder')
   const [messages, setMessages] = useState<MailListItem[]>([])
   const [counts, setCounts] = useState<MailCounts>(EMPTY_COUNTS)
   const [total, setTotal] = useState(0)
@@ -142,8 +142,10 @@ export function useMailbox() {
       setCounts(result.counts || EMPTY_COUNTS)
       if (!keepSelection) setSelected([])
       else setSelected((current) => current.filter((uid) => result.data.some((item) => item.uid === uid)))
+      return result.data
     } catch (error) {
       notify.error(mailboxErrorMessage(error))
+      return []
     } finally {
       setListLoading(false)
     }
@@ -160,6 +162,21 @@ export function useMailbox() {
     }
   }, [])
 
+  const refreshFolder = useCallback(async (target: MailFolder, limit = 200) => {
+    setSyncing(true)
+    try {
+      const synced = await mailboxService.sync(target.path, limit)
+      setUnreadCount.current(synced.unread)
+      await loadFolders()
+      if (folderRef.current?.path === target.path) await loadMessages(target, 1, true)
+      void loadQuota()
+    } catch (error) {
+      notify.error(mailboxErrorMessage(error))
+    } finally {
+      setSyncing(false)
+    }
+  }, [loadFolders, loadMessages, loadQuota])
+
   const boot = useCallback(async () => {
     setLoading(true)
     try {
@@ -169,25 +186,34 @@ export function useMailbox() {
         setSettingsOpen(true)
         return
       }
-      setSyncing(true)
-      const synced = await mailboxService.sync(undefined, 200)
-      setUnreadCount.current(synced.unread)
-      const list = await loadFolders()
-      const inbox = list.find((item) => item.specialUse === 'inbox' && item.selectable) || list.find((item) => item.selectable) || null
+      let list = await loadFolders()
+      let inbox = list.find((item) => item.specialUse === 'inbox' && item.selectable) || list.find((item) => item.selectable) || null
+      if (!inbox) {
+        setSyncing(true)
+        const synced = await mailboxService.sync(undefined, 200)
+        setUnreadCount.current(synced.unread)
+        list = await loadFolders()
+        inbox = list.find((item) => item.specialUse === 'inbox' && item.selectable) || list.find((item) => item.selectable) || null
+        setSyncing(false)
+      }
       setFolder(inbox)
       setView('folder')
-      if (inbox) await loadMessages(inbox, 1)
-      await refreshDrafts()
+      setMessage(null)
+      setPane('list')
+      if (inbox) folderRef.current = inbox
+      if (inbox) void loadMessages(inbox, 1)
+      void refreshDrafts()
       void loadQuota()
       readyRef.current = true
+      if (inbox) void refreshFolder(inbox, 200)
     } catch (error) {
       notify.error(mailboxErrorMessage(error))
-      setSettingsOpen(true)
+      const current = await mailboxService.account().catch(() => null)
+      if (!current?.configured) setSettingsOpen(true)
     } finally {
-      setSyncing(false)
       setLoading(false)
     }
-  }, [loadFolders, loadMessages, refreshDrafts, loadQuota])
+  }, [loadFolders, loadMessages, refreshDrafts, loadQuota, refreshFolder])
 
   useEffect(() => {
     void boot()
@@ -208,6 +234,23 @@ export function useMailbox() {
     if (!readyRef.current || !folderRef.current) return
     void loadMessages(folderRef.current, 1)
   }, [query, unreadOnly, starredOnly, withAttachments, sort, threads, loadMessages])
+
+  const REFRESH_SECONDS = 5 * 60
+  const [refreshIn, setRefreshIn] = useState(REFRESH_SECONDS)
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setRefreshIn((left) => (left > 1 ? left - 1 : 0))
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    if (refreshIn !== 0) return
+    const current = folderRef.current
+    if (current && readyRef.current) void refreshFolder(current, 200)
+    setRefreshIn(REFRESH_SECONDS)
+  }, [refreshIn, refreshFolder])
 
   useEffect(() => {
     if (!pending) return
@@ -231,24 +274,94 @@ export function useMailbox() {
     return () => window.clearTimeout(timer)
   }, [pending, refreshDrafts, loadMessages])
 
-  async function openFolder(next: MailFolder, limit = syncLimit) {
+  async function openFolder(next: MailFolder, limit = syncLimit, keepFilters = false) {
+    const resetFilters = !keepFilters && (unreadOnly || starredOnly || withAttachments)
+    if (resetFilters) {
+      setUnreadOnly(false)
+      setStarredOnly(false)
+      setWithAttachments(false)
+    }
+    folderRef.current = next
     setFolder(next)
     setView('folder')
     setMessage(null)
     setPane('list')
-    setSyncing(true)
-    try {
-      const synced = await mailboxService.sync(next.path, limit)
-      setUnreadCount.current(synced.unread)
-      await loadFolders()
-      await loadMessages(next, 1)
-      void loadQuota()
-    } catch (error) {
-      notify.error(mailboxErrorMessage(error))
-      await loadMessages(next, 1)
-    } finally {
-      setSyncing(false)
+    if (!resetFilters) await loadMessages(next, 1)
+    void refreshFolder(next, limit)
+  }
+
+  function openUnread() {
+    const inbox = folders.find((item) => item.specialUse === 'inbox' && item.selectable) || folderRef.current
+    if (!inbox) return
+    const sameFolder = folderRef.current?.path === inbox.path && view === 'folder'
+    if (sameFolder && unreadOnly && !starredOnly && !withAttachments) {
+      setUnreadOnly(false)
+      return
     }
+    if (!sameFolder) {
+      folderRef.current = inbox
+      setFolder(inbox)
+      setMessage(null)
+      setPane('list')
+    }
+    setView('folder')
+    setStarredOnly(false)
+    setWithAttachments(false)
+    if (unreadOnly) void loadMessages(inbox, 1)
+    else setUnreadOnly(true)
+  }
+
+  async function markOneSeen(item: Pick<MailListItem, 'uid' | 'seen'>, seen: boolean) {
+    const currentFolder = folderRef.current
+    if (!currentFolder || item.seen === seen) return
+    const delta = seen ? -1 : 1
+    setMessages((current) => {
+      if (seen && unreadOnly) return current.filter((row) => row.uid !== item.uid)
+      return current.map((row) => (row.uid === item.uid ? { ...row, seen, threadUnread: seen ? 0 : Math.max(1, row.threadUnread || 1) } : row))
+    })
+    setCounts((current) => ({ ...current, unread: Math.max(0, current.unread + delta) }))
+    setFolders((current) => current.map((entry) => (
+      entry.path === currentFolder.path
+        ? { ...entry, unreadCount: Math.max(0, (entry.unreadCount || 0) + delta) }
+        : entry
+    )))
+    setUnreadCount.current(Math.max(0, folders.reduce((sum, entry) => sum + (entry.unreadCount || 0), 0) + delta))
+    setMessage((current) => {
+      if (current?.uid !== item.uid) return current
+      if (seen && unreadOnly) return null
+      return { ...current, seen }
+    })
+    if (seen && unreadOnly) setPane('list')
+    notify.success(seen ? 'Marcada como lida.' : 'Marcada como não lida.')
+    void mailboxService.seen(currentFolder.path, [item.uid], seen).then((result) => {
+      setUnreadCount.current(result.unread)
+    }).catch((error) => {
+      notify.error(mailboxErrorMessage(error))
+      void loadMessages(currentFolder, page)
+      void loadFolders()
+    })
+  }
+
+  async function markOneStar(item: Pick<MailListItem, 'uid' | 'flagged'>) {
+    const currentFolder = folderRef.current
+    if (!currentFolder) return
+    const flagged = !item.flagged
+    setMessages((current) => {
+      if (!flagged && starredOnly) return current.filter((row) => row.uid !== item.uid)
+      return current.map((row) => (row.uid === item.uid ? { ...row, flagged } : row))
+    })
+    setCounts((current) => ({ ...current, starred: Math.max(0, current.starred + (flagged ? 1 : -1)) }))
+    setMessage((current) => {
+      if (current?.uid !== item.uid) return current
+      if (!flagged && starredOnly) return null
+      return { ...current, flagged }
+    })
+    if (!flagged && starredOnly) setPane('list')
+    notify.success(flagged ? 'Sinalizada.' : 'Sinalização removida.')
+    void mailboxService.star(currentFolder.path, [item.uid], flagged).catch((error) => {
+      notify.error(mailboxErrorMessage(error))
+      void loadMessages(currentFolder, page)
+    })
   }
 
   async function openMessage(item: Pick<MailListItem, 'uid'>, loadRemoteImages = false, target = folder) {
@@ -449,18 +562,33 @@ export function useMailbox() {
     }
   }
 
-  async function forward(asAttachment = false) {
-    if (!message) return
-    const seed = asAttachment ? buildForwardAsAttachment(message) : buildForward(message)
-    const base: ComposerState = { ...emptyComposer(account), ...seed, editorKey: `fwd-${message.uid}-${Date.now()}` }
-    const needsFiles = asAttachment || message.attachments.some((file) => !file.related)
+  async function forwardMessage(source: MailMessage, asAttachment = false) {
+    const seed = asAttachment ? buildForwardAsAttachment(source) : buildForward(source)
+    const base: ComposerState = { ...emptyComposer(account), ...seed, editorKey: `fwd-${source.uid}-${Date.now()}` }
+    const needsFiles = asAttachment || source.attachments.some((file) => !file.related)
     openComposer(base)
     if (!needsFiles) return
     try {
       const draft = await persistDraft(base)
-      const withFiles = await mailboxService.attachOriginal(draft.id, message.folder, message.uid, asAttachment)
+      const withFiles = await mailboxService.attachOriginal(draft.id, source.folder, source.uid, asAttachment)
       setComposer((current) => (current ? { ...current, draftId: draft.id, attachments: withFiles.attachments } : current))
       await refreshDrafts()
+    } catch (error) {
+      notify.error(mailboxErrorMessage(error))
+    }
+  }
+
+  function forward(asAttachment = false) {
+    if (!message) return
+    return forwardMessage(message, asAttachment)
+  }
+
+  async function forwardOne(item: Pick<MailListItem, 'uid'>) {
+    const currentFolder = folderRef.current
+    if (!currentFolder) return
+    try {
+      const detail = await mailboxService.read(currentFolder.path, item.uid, false, true)
+      await forwardMessage(detail, false)
     } catch (error) {
       notify.error(mailboxErrorMessage(error))
     }
@@ -628,6 +756,13 @@ export function useMailbox() {
     loading,
     listLoading,
     syncing,
+    refreshIn,
+    refreshNow: () => {
+      const current = folderRef.current
+      if (!current) return
+      setRefreshIn(REFRESH_SECONDS)
+      return refreshFolder(current, 200)
+    },
     message,
     reading,
     selected,
@@ -663,6 +798,13 @@ export function useMailbox() {
     closeSource,
     reload: boot,
     openFolder,
+    openUnread,
+    openDrafts: () => {
+      setView('drafts')
+      setMessage(null)
+      setPane('list')
+      void refreshDrafts()
+    },
     openScheduled: () => {
       setView('scheduled')
       setMessage(null)
@@ -673,7 +815,7 @@ export function useMailbox() {
     loadMore: async () => {
       const next = syncLimit + 200
       setSyncLimit(next)
-      if (folder) await openFolder(folder, next)
+      if (folder) await openFolder(folder, next, true)
     },
     changePage: (next: number) => {
       if (folder) void loadMessages(folder, next)
@@ -691,6 +833,7 @@ export function useMailbox() {
       openComposer({ ...buildReply(message, ownAddresses(), all, message.specialUse === 'sent'), signatureId: account?.defaultSignatureId || null })
     },
     forward,
+    forwardOne,
     editDraft: (draft: MailDraft) => openComposer(draftToComposer(draft)),
     cancelSchedule,
     updateComposer,
@@ -708,23 +851,43 @@ export function useMailbox() {
       setComposer(null)
       await refreshDrafts()
     },
+    deleteLocalDraft: async (draft: MailDraft) => {
+      if (!window.confirm('Excluir este rascunho?')) return
+      try {
+        await mailboxService.deleteDraft(draft.id)
+        if (draftIdRef.current === draft.id) {
+          draftIdRef.current = undefined
+          setComposer(null)
+        }
+        await refreshDrafts()
+        notify.success('Rascunho excluído.')
+      } catch (error) {
+        notify.error(mailboxErrorMessage(error))
+      }
+    },
     markSeen: (seen: boolean) => {
       if (!folder || !uids.length) return
+      if (uids.length === 1 && message?.uid === uids[0]) return markOneSeen(message, seen)
       return act(() => mailboxService.seen(folder.path, uids, seen), seen ? 'Marcada como lida.' : 'Marcada como não lida.', {
-        closeReader: !seen && leavesFolder,
+        closeReader: seen ? false : leavesFolder,
       })
     },
+    markOneSeen,
     readAll: () => {
       if (!folder) return
       return act(() => mailboxService.readAll(folder.path), 'Todas as mensagens da pasta foram marcadas como lidas.')
     },
-    toggleStar: (item: MailListItem) => {
-      if (!folder) return
-      return act(() => mailboxService.star(folder.path, [item.uid], !item.flagged), item.flagged ? 'Estrela removida.' : 'Marcada com estrela.')
-    },
+    toggleStar: (item: MailListItem) => markOneStar(item),
     star: (flagged: boolean) => {
       if (!folder || !uids.length) return
-      return act(() => mailboxService.star(folder.path, uids, flagged), flagged ? 'Marcada com estrela.' : 'Estrela removida.')
+      const targets = [...uids]
+      setMessages((current) => current.map((row) => (targets.includes(row.uid) ? { ...row, flagged } : row)))
+      setMessage((current) => (current && targets.includes(current.uid) ? { ...current, flagged } : current))
+      notify.success(flagged ? 'Sinalizada.' : 'Sinalização removida.')
+      void mailboxService.star(folder.path, targets, flagged).catch((error) => {
+        notify.error(mailboxErrorMessage(error))
+        void loadMessages(folder, page)
+      })
     },
     move: (targetFolder: string) => moveUids(uids, targetFolder),
     moveUids,
@@ -739,6 +902,16 @@ export function useMailbox() {
     notSpam: () => {
       if (!folder || !uids.length) return
       return act(() => mailboxService.notSpam(folder.path, uids), 'Movida para a caixa de entrada.', { closeReader: leavesFolder })
+    },
+    removeOne: (item: Pick<MailListItem, 'uid'>) => {
+      if (!folder) return
+      const permanent = folder.specialUse === 'trash'
+      if (permanent && !window.confirm('Excluir permanentemente? Isso não pode ser desfeito.')) return
+      return act(
+        () => mailboxService.remove(folder.path, [item.uid]),
+        permanent ? 'Mensagem excluída.' : 'Mensagem enviada para a lixeira.',
+        { closeReader: message?.uid === item.uid },
+      )
     },
     remove: () => {
       if (!folder || !uids.length) return

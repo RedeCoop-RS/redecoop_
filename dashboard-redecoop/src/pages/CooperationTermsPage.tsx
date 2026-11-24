@@ -6,13 +6,23 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Input } from '@/components/ui/Input'
+import { Modal } from '@/components/ui/Modal'
 import { Pagination } from '@/components/ui/Pagination'
+import { ModelSelect } from '@/components/cooperationTerm/ModelSelect'
 import { ModelBadge, StatusBadge } from '@/components/cooperationTerm/TermBadges'
 import { formatWhen } from '@/components/cooperationTerm/format'
 import { useAuth } from '@/contexts/AuthContext'
 import { ApiError } from '@/lib/api'
 import { cooperationTermService } from '@/services/cooperationTerm.service'
-import type { CooperationTermSummary } from '@/types/cooperationTerm'
+import type { CooperationTermModel, CooperationTermSummary } from '@/types/cooperationTerm'
+
+const emptyDraft = {
+  name: '',
+  processNumber: '',
+  buyerInstitution: '',
+  buyerEmail: '',
+  model: 'GHC' as CooperationTermModel,
+}
 
 export function CooperationTermsPage() {
   const { isAdmin } = useAuth()
@@ -24,6 +34,9 @@ export function CooperationTermsPage() {
   const [rows, setRows] = useState<CooperationTermSummary[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [creating, setCreating] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [draft, setDraft] = useState(emptyDraft)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -44,6 +57,35 @@ export function CooperationTermsPage() {
     void load()
   }, [load])
 
+  const openCreate = () => {
+    setDraft(emptyDraft)
+    setCreating(true)
+  }
+
+  const create = async () => {
+    if (!draft.name.trim() || !draft.processNumber.trim() || !draft.buyerInstitution.trim()) {
+      toast.error('Informe nome, processo e instituição compradora.')
+      return
+    }
+    setSaving(true)
+    try {
+      const created = await cooperationTermService.create({
+        name: draft.name.trim(),
+        processNumber: draft.processNumber.trim(),
+        buyerInstitution: draft.buyerInstitution.trim(),
+        buyerEmail: draft.buyerEmail.trim() || null,
+        model: draft.model,
+      })
+      toast.success('Termo criado.')
+      setCreating(false)
+      navigate(`${base}/${created.id}`)
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Não foi possível criar o termo.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -56,7 +98,7 @@ export function CooperationTermsPage() {
         }
         actions={
           isAdmin ? (
-            <Button onClick={() => navigate(`${base}/novo`)}>
+            <Button onClick={openCreate}>
               <Plus size={16} /> Novo termo
             </Button>
           ) : undefined
@@ -137,9 +179,7 @@ export function CooperationTermsPage() {
                           <span className="inline-flex flex-wrap gap-1">
                             <StatusBadge status={row.status} />
                             {row.status === 'DRAFT' && row.divisionReleased && (
-                              <span className="inline-flex rounded-full bg-green-soft px-2.5 py-0.5 text-xs font-semibold text-green-dark">
-                                Divisão liberada
-                              </span>
+                              <span className="term-pill term-pill--signed">Divisão liberada</span>
                             )}
                           </span>
                         </td>
@@ -155,6 +195,30 @@ export function CooperationTermsPage() {
           )}
         </div>
       </div>
+
+      <Modal open={creating} onClose={() => !saving && setCreating(false)} title="Novo termo" size="lg">
+        <form
+          className="grid gap-4 sm:grid-cols-2"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void create()
+          }}
+        >
+          <Input label="Nome do edital" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
+          <Input label="Número do processo" value={draft.processNumber} onChange={(event) => setDraft({ ...draft, processNumber: event.target.value })} />
+          <Input label="Instituição compradora" value={draft.buyerInstitution} onChange={(event) => setDraft({ ...draft, buyerInstitution: event.target.value })} />
+          <Input label="E-mail da instituição" type="email" value={draft.buyerEmail} onChange={(event) => setDraft({ ...draft, buyerEmail: event.target.value })} />
+          <div className="sm:col-span-2">
+            <ModelSelect value={draft.model} onChange={(model) => setDraft({ ...draft, model })} />
+          </div>
+          <div className="flex justify-end gap-2 sm:col-span-2">
+            <Button type="button" variant="outline" onClick={() => setCreating(false)} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={saving}>Criar termo</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   )
 }

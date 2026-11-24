@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Sidebar } from './Sidebar'
-import { TopBar } from './TopBar'
 import { NotificationsPanel } from './NotificationsPanel'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSocket } from '@/contexts/SocketContext'
@@ -19,12 +18,7 @@ export function DashboardLayout() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { notifications, unreadCount, refreshNotifications, dismissNotification } = useSocket()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
-
-  useEffect(() => {
-    setSidebarOpen(false)
-  }, [location.pathname])
 
   useEffect(() => {
     if (notificationsOpen) refreshNotifications()
@@ -55,24 +49,15 @@ export function DashboardLayout() {
 
   return (
     <div className="dashboard-shell">
-      <Sidebar
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        onOpenNotifications={() => setNotificationsOpen(true)}
-      />
+      <Sidebar onOpenNotifications={() => setNotificationsOpen(true)} />
 
       <div className="dashboard-main">
-        <TopBar
-          onMenuClick={() => setSidebarOpen(true)}
-          onOpenNotifications={() => setNotificationsOpen(true)}
-          unreadCount={unreadCount}
-        />
-
         <main className="dashboard-content">
           <div className="dashboard-content__inner">
             <AnimatePresence mode="wait">
               <motion.div
                 key={location.pathname}
+                className="min-w-0"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}

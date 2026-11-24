@@ -27,11 +27,8 @@ export interface TermAccessInput {
 }
 
 /**
- * Regras confirmadas com o cliente:
- * - ADMIN cria, edita rascunho, recalcula, firma e envia.
- * - Cooperativa vê termo firmado (documento inteiro) e, se participa,
- *   a divisão liberada de um rascunho. Nunca edita e nunca vê rascunho fechado.
- * - Motorista e visitante não acessam.
+ * Por hora o módulo fica só com o administrador.
+ * Cooperativa, motorista e visitante não veem termo nem divisão.
  */
 export function resolveTermAccess(input: TermAccessInput): TermAccess {
   if (input.role === UserRole.ADMIN) {
@@ -41,19 +38,6 @@ export function resolveTermAccess(input: TermAccessInput): TermAccess {
       canDownload: true,
       scope: 'full',
     };
-  }
-
-  if (input.role !== UserRole.COOPERATIVE) return hidden;
-
-  if (input.status === CooperationTermStatus.SIGNED) {
-    return { canView: true, canMutate: false, canDownload: true, scope: 'full' };
-  }
-
-  const participates =
-    input.cooperativeId != null && input.participantCooperativeIds.includes(input.cooperativeId);
-
-  if (input.divisionReleased && participates) {
-    return { canView: true, canMutate: false, canDownload: false, scope: 'division' };
   }
 
   return hidden;
@@ -66,7 +50,7 @@ export function assertCanMutate(role: UserRole): void {
 }
 
 export function assertCanReadModule(role: UserRole): void {
-  if (role !== UserRole.ADMIN && role !== UserRole.COOPERATIVE) {
+  if (role !== UserRole.ADMIN) {
     throw new ForbiddenException('Acesso não autorizado ao termo de cooperação');
   }
 }

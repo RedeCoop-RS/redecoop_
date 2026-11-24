@@ -171,6 +171,21 @@ export function buildForwardAsAttachment(message: MailMessage) {
   }
 }
 
+const AVATAR_COLORS = ['#0e6b38', '#1a4f72', '#6d4a16', '#5b2f4a', '#1d4d44', '#34356b']
+
+export function mailInitials(value: string) {
+  const parts = value.replace(/[<>"']/g, ' ').split(/\s+/).filter((part) => part && !part.includes('@'))
+  const source = parts.length ? parts : value.split('@')
+  const letters = `${source[0]?.[0] || ''}${source[1]?.[0] || ''}`
+  return (letters || '?').toUpperCase()
+}
+
+export function mailAvatarColor(value: string) {
+  let hash = 0
+  for (const char of value) hash = (hash + char.charCodeAt(0) * 17) % AVATAR_COLORS.length
+  return AVATAR_COLORS[hash]
+}
+
 export function printableMessage(message: MailMessage) {
   const rows = [
     ['De', formatAddress({ name: message.from?.name || undefined, address: message.from?.address || '' })],

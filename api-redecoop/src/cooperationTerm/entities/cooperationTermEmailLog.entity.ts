@@ -6,7 +6,7 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { CooperationTermEmailStatus } from '../enums/cooperationTerm.enums';
+import { CooperationTermEmailKind, CooperationTermEmailStatus } from '../enums/cooperationTerm.enums';
 import { CooperationTerm } from './cooperationTerm.entity';
 
 export interface CooperationTermRecipient {
@@ -26,6 +26,9 @@ export class CooperationTermEmailLog {
   @ManyToOne(() => CooperationTerm, (term) => term.emailLogs, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'term_id' })
   term: CooperationTerm;
+
+  @Column({ type: 'enum', enum: CooperationTermEmailKind, default: CooperationTermEmailKind.TERM })
+  kind: CooperationTermEmailKind;
 
   @Column({ type: 'int', nullable: true })
   sentByUserId: number | null;

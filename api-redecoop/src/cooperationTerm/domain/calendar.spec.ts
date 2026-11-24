@@ -1,4 +1,4 @@
-import { buildCalendarAlerts, splitQuotaByMonths } from './calendar';
+import { buildCalendarAlerts, describeMonths, splitQuotaByMonths } from './calendar';
 import { toMinor } from './quantity';
 
 describe('splitQuotaByMonths', () => {
@@ -22,6 +22,15 @@ describe('splitQuotaByMonths', () => {
   });
 });
 
+describe('describeMonths', () => {
+  it('junta sequências de três ou mais meses em faixa', () => {
+    expect(describeMonths([4, 5, 6, 7, 8, 9, 10, 11, 12])).toBe('ABR a DEZ');
+    expect(describeMonths([1, 3, 4, 5, 6, 9])).toBe('JAN, MAR a JUN e SET');
+    expect(describeMonths([1, 2])).toBe('JAN e FEV');
+    expect(describeMonths([7])).toBe('JUL');
+  });
+});
+
 describe('buildCalendarAlerts', () => {
   const item = {
     id: 4,
@@ -36,16 +45,48 @@ describe('buildCalendarAlerts', () => {
 
   it('alerta mês sem fornecedor e cota sem mês marcado', () => {
     const alerts = buildCalendarAlerts([item]);
-    expect(
-      alerts.some((alert) => alert.code === 'MONTH_WITHOUT_SUPPLIER' && alert.month === 3),
-    ).toBe(true);
-    expect(
-      alerts.some((alert) => alert.code === 'MONTH_WITHOUT_SUPPLIER' && alert.month === 1),
-    ).toBe(false);
+    const months = alerts.filter((alert) => alert.code === 'MONTH_WITHOUT_SUPPLIER');
+    expect(months).toHaveLength(1);
+    expect(months[0].months).toEqual([3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    expect(months[0].message).toBe('ALHO: sem fornecedor em MAR a DEZ (10 meses).');
     expect(
       alerts.some((alert) => alert.code === 'QUOTA_WITHOUT_MONTHS' && alert.cooperativeId === 3),
     ).toBe(true);
     expect(alerts.some((alert) => alert.code === 'ALLOCATION_SHORTFALL')).toBe(false);
+  });
+
+  it('aponta meses com mais de uma cooperativa no mesmo item', () => {
+    const alerts = buildCalendarAlerts([item]);
+    const overlap = alerts.filter((alert) => alert.code === 'MONTH_OVERLAP');
+    expect(overlap).toHaveLength(1);
+    expect(overlap[0].months).toEqual([1]);
+    expect(overlap[0].message).toBe('ALHO: mais de uma cooperativa entrega em JAN.');
+  });
+
+  it('não aponta nada quando as cooperativas se revezam no ano todo', () => {
+    const alerts = buildCalendarAlerts([
+      {
+        ...item,
+        allocations: [
+          { cooperativeId: 1, cooperativeName: 'CAAF', quantity: 300, months: [1, 2, 7, 8] },
+          { cooperativeId: 2, cooperativeName: 'COOMAFITT', quantity: 300, months: [5, 6, 11, 12] },
+          { cooperativeId: 3, cooperativeName: 'NOSSA TERRA', quantity: 300, months: [3, 4, 9, 10] },
+        ],
+      },
+    ]);
+    expect(alerts).toEqual([]);
+  });
+
+  it('usa um único alerta quando nenhum mês tem fornecedor', () => {
+    const alerts = buildCalendarAlerts([
+      {
+        ...item,
+        allocations: [{ cooperativeId: 1, cooperativeName: 'X', quantity: 900, months: [] }],
+      },
+    ]);
+    const months = alerts.filter((alert) => alert.code === 'MONTH_WITHOUT_SUPPLIER');
+    expect(months).toHaveLength(1);
+    expect(months[0].message).toBe('ALHO: nenhum mês tem fornecedor marcado.');
   });
 
   it('alerta quando a soma das cotas não fecha com o total', () => {

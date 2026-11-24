@@ -3,6 +3,7 @@
 @import "./styles/mobile.css";
 @import "./styles/site-analytics.css";
 @import "./styles/mailbox.css";
+@import "./styles/cooperation-term.css";
 
 @theme {
   --color-green: #009640;
@@ -94,21 +95,5 @@
 
   .home-kicker {
     @apply inline-block text-xs font-bold tracking-[0.22em] uppercase text-green;
-  }
-
-  .home-stripe-bar {
-    @apply flex h-1.5 w-full;
-  }
-
-  .home-stripe-bar__green {
-    @apply flex-[2] bg-green;
-  }
-
-  .home-stripe-bar__yellow {
-    @apply flex-1 bg-yellow;
-  }
-
-  .home-stripe-bar__mint {
-    @apply flex-1 bg-green-light;
   }
 }

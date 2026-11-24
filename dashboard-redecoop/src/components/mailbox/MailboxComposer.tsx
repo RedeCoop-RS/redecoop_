@@ -71,24 +71,21 @@ export function MailboxComposer({ composer, signatures, onChange, onClose, onSen
         onFiles(event.dataTransfer.files)
       }}
     >
-      <header>
+      <header className="mailbox-composer__head">
         <h2>{title}</h2>
-        <button type="button" onClick={onClose} aria-label="Fechar editor"><X size={18} /></button>
+        <button type="button" className="mailbox-tool" onClick={onClose} aria-label="Fechar editor"><X size={18} /></button>
       </header>
+      <div className="mailbox-composer__scroll">
       {composer.scheduledAt && (
         <p className="mailbox-banner">Agendado para {formatFullDate(composer.scheduledAt)}. Enviar de novo substitui o agendamento.</p>
       )}
       {composer.scheduleError && <p className="mailbox-banner mailbox-banner--bad">O envio anterior falhou: {composer.scheduleError}</p>}
       <AddressInput label="Para" value={composer.to || ''} onChange={(to) => onChange({ to })} autoFocus={!composer.to} />
-      {!composer.showCc ? (
-        <button type="button" className="mailbox-link" onClick={() => onChange({ showCc: true })}>Adicionar Cc e Cco</button>
-      ) : (
-        <>
-          <AddressInput label="Cc" value={composer.cc || ''} onChange={(cc) => onChange({ cc })} />
-          <AddressInput label="Cco" value={composer.bcc || ''} onChange={(bcc) => onChange({ bcc })} />
-        </>
-      )}
-      <label>
+      <div className="mailbox-composer__copies">
+        <AddressInput label="Cc" value={composer.cc || ''} onChange={(cc) => onChange({ cc, showCc: true })} />
+        <AddressInput label="Cco" value={composer.bcc || ''} onChange={(bcc) => onChange({ bcc, showCc: true })} />
+      </div>
+      <label className="mailbox-composer__subject">
         Assunto
         <input value={composer.subject || ''} onChange={(event) => onChange({ subject: event.target.value })} />
       </label>
@@ -98,16 +95,26 @@ export function MailboxComposer({ composer, signatures, onChange, onClose, onSen
         onChange={(html) => onChange({ html })}
       />
       {composer.attachments.length > 0 && (
-        <ul className="mailbox-files" aria-label="Anexos">
-          {composer.attachments.map((file) => (
-            <li key={file.id}>
-              <Paperclip size={14} />
-              <span>{file.filename}</span>
-              <small>{formatBytes(file.size)}</small>
-              <button type="button" onClick={() => onRemoveFile(file.id)}>Remover</button>
-            </li>
-          ))}
-        </ul>
+        <section className="mailbox-attach" aria-label="Anexos">
+          <header>
+            <Paperclip size={14} />
+            <span>{composer.attachments.length === 1 ? '1 anexo' : `${composer.attachments.length} anexos`}</span>
+          </header>
+          <ul>
+            {composer.attachments.map((file) => (
+              <li key={file.id}>
+                <span className="mailbox-attach__mark" aria-hidden="true"><Paperclip size={16} /></span>
+                <span className="mailbox-attach__meta">
+                  <strong>{file.filename}</strong>
+                  <small>{formatBytes(file.size)}</small>
+                </span>
+                <span className="mailbox-attach__actions">
+                  <button type="button" onClick={() => onRemoveFile(file.id)}>Remover</button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
       <div className="mailbox-composer__options">
         <label className="mailbox-check">
@@ -132,7 +139,8 @@ export function MailboxComposer({ composer, signatures, onChange, onClose, onSen
           Pedir confirmação de leitura
         </label>
       </div>
-      <footer>
+      </div>
+      <footer className="mailbox-composer__foot">
         <label className="mailbox-file">
           <Paperclip size={16} /> Anexar
           <input type="file" multiple onChange={(event) => { onFiles(event.target.files); event.target.value = '' }} />

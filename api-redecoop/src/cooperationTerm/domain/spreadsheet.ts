@@ -7,6 +7,7 @@ export interface ImportedHospitalQuantity {
 }
 
 export interface ImportedItem {
+  itemNumber: number | null;
   description: string;
   unit: string;
   estimatedQuantity: number | null;
@@ -15,7 +16,7 @@ export interface ImportedItem {
   hospitalQuantities: ImportedHospitalQuantity[];
 }
 
-const DESCRIPTION_HEADERS = ['descricao', 'descricao do item', 'item', 'produto', 'nome'];
+const DESCRIPTION_HEADERS = ['descricao do item', 'descricao', 'produto', 'nome', 'item'];
 const UNIT_HEADERS = ['unidade', 'un', 'und'];
 const QUANTITY_HEADERS = [
   'quantidade',
@@ -27,6 +28,83 @@ const QUANTITY_HEADERS = [
 ];
 const UNIT_PRICE_HEADERS = ['valor unitario', 'preco unitario', 'valor un', 'preco'];
 const TOTAL_PRICE_HEADERS = ['valor total', 'preco total'];
+const NUMBER_HEADERS = [
+  '#',
+  'n',
+  'n.',
+  'no',
+  'no.',
+  'nº',
+  'n°',
+  'num',
+  'numero',
+  'item n',
+  'item nº',
+  'item n°',
+  'n item',
+  'nº item',
+  'n° item',
+  'numero do item',
+];
+/** Colunas da planilha preenchida (interesse, divisão, calendário) que não são unidades hospitalares. */
+const IGNORED_HEADERS = [
+  'cooperativas',
+  'cooperativa',
+  'cooperativas interessadas',
+  'quantidade p/ cotacao',
+  'quantidade para cotacao',
+  'qtd. cotacao',
+  'sazonalidade de producao',
+  'jan',
+  'fev',
+  'mar',
+  'abr',
+  'mai',
+  'jun',
+  'jul',
+  'ago',
+  'set',
+  'out',
+  'nov',
+  'dez',
+  'observacao',
+  'observacoes',
+  'obs',
+  'marca',
+  'especificacao',
+  'grupo',
+  'categoria',
+  'lote',
+  'codigo',
+  'cod',
+];
+
+export interface ImportPreview {
+  fileName: string;
+  items: ImportedItem[];
+  hospitalUnits: string[];
+  missingQuantity: string[];
+}
+
+export function summarizeImport(fileName: string, items: ImportedItem[]): ImportPreview {
+  const hospitalUnits: string[] = [];
+  const seen = new Set<string>();
+  for (const item of items) {
+    for (const quantity of item.hospitalQuantities) {
+      if (seen.has(quantity.hospitalUnitName)) continue;
+      seen.add(quantity.hospitalUnitName);
+      hospitalUnits.push(quantity.hospitalUnitName);
+    }
+  }
+  return {
+    fileName,
+    items,
+    hospitalUnits,
+    missingQuantity: items
+      .filter((item) => item.estimatedQuantity === null)
+      .map((item) => item.description),
+  };
+}
 
 export function parseSpreadsheet(buffer: Buffer, filename: string): ImportedItem[] {
   const lower = filename.toLowerCase();
@@ -39,27 +117,48 @@ export function parseSpreadsheet(buffer: Buffer, filename: string): ImportedItem
 export async function parseXlsx(buffer: Buffer): Promise<ImportedItem[]> {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer as unknown as ExcelJS.Buffer);
-  const sheet = workbook.worksheets[0];
-  if (!sheet) throw new BadRequestException('A planilha não possui abas');
+  if (!workbook.worksheets.length) throw new BadRequestException('A planilha não possui abas');
 
+  let fallback: string[][] | null = null;
+  for (const current of workbook.worksheets) {
+    const matrix = sheetToMatrix(current);
+    const hasDescription = matrix.some((row) =>
+      row.some((cell) => DESCRIPTION_HEADERS.includes(headerKey(cell))),
+    );
+    if (hasDescription) return rowsToItems(matrix);
+    if (!fallback && matrix.some((row) => row.some((cell) => cell.trim()))) fallback = matrix;
+  }
+  return rowsToItems(fallback ?? []);
+}
+
+function sheetToMatrix(sheet: ExcelJS.Worksheet): string[][] {
   const matrix: string[][] = [];
+  const width = sheet.columnCount;
   sheet.eachRow((row) => {
-    const values = row.values as unknown[];
-    const cells = values.slice(1).map((value) => cellToString(value));
+    const last = Math.max(width, row.cellCount);
+    const cells: string[] = [];
+    for (let column = 1; column <= last; column++) {
+      cells.push(cellToString(row.getCell(column).value));
+    }
     matrix.push(cells);
   });
-  return rowsToItems(matrix);
+  return matrix;
 }
 
 function cellToString(value: unknown): string {
   if (value === null || value === undefined) return '';
-  if (typeof value === 'object' && value && 'text' in value)
-    return String((value as { text: unknown }).text);
-  if (typeof value === 'object' && value && 'result' in value) {
-    return cellToString((value as { result: unknown }).result);
-  }
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'string') return value;
   if (value instanceof Date) return '';
-  return String(value);
+  if (typeof value === 'object') {
+    const record = value as { text?: unknown; result?: unknown; richText?: { text?: string }[] };
+    if (Array.isArray(record.richText)) {
+      return record.richText.map((part) => part.text ?? '').join('');
+    }
+    if ('result' in record && record.result !== undefined) return cellToString(record.result);
+    if ('text' in record && record.text != null) return cellToString(record.text);
+  }
+  return '';
 }
 
 export function parseCsv(content: string): string[][] {
@@ -67,9 +166,13 @@ export function parseCsv(content: string): string[][] {
     .replace(/^\uFEFF/, '')
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n');
-  const firstLine = text.split('\n').find((line) => line.trim()) ?? '';
+  const sample = text
+    .split('\n')
+    .filter((line) => line.trim())
+    .slice(0, 10)
+    .join('\n');
   const delimiter =
-    (firstLine.match(/;/g) || []).length > (firstLine.match(/,/g) || []).length ? ';' : ',';
+    (sample.match(/;/g) || []).length > (sample.match(/,/g) || []).length ? ';' : ',';
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = '';
@@ -114,34 +217,47 @@ export function parseCsv(content: string): string[][] {
 }
 
 function rowsToItems(rows: string[][]): ImportedItem[] {
-  const headerIndex = rows.findIndex((row) => row.some((cell) => headerKey(cell) !== ''));
-  if (headerIndex < 0)
+  if (!rows.some((row) => row.some((cell) => headerKey(cell) !== ''))) {
     throw new BadRequestException('Não foi possível ler o cabeçalho da planilha');
-
-  const headers = rows[headerIndex].map((cell) => headerKey(cell));
-  const descriptionIndex = headers.findIndex((header) => DESCRIPTION_HEADERS.includes(header));
-  if (descriptionIndex < 0) {
+  }
+  // Pula as linhas de título (organização, edital) que antecedem o cabeçalho.
+  const headerIndex = rows.findIndex((row) =>
+    row.some((cell) => DESCRIPTION_HEADERS.includes(headerKey(cell))),
+  );
+  if (headerIndex < 0) {
     throw new BadRequestException(
-      'A planilha precisa da coluna Descrição (ou Item). Colunas aceitas: descrição, unidade, quantidade, valor unitário e valor total.',
+      'A planilha precisa da coluna Descrição (ou Item). Colunas aceitas: nº, descrição, unidade, quantidade, valor unitário e valor total.',
     );
   }
-  const unitIndex = headers.findIndex((header) => UNIT_HEADERS.includes(header));
-  const quantityIndex = headers.findIndex((header) => QUANTITY_HEADERS.includes(header));
-  const unitPriceIndex = headers.findIndex((header) => UNIT_PRICE_HEADERS.includes(header));
-  const totalPriceIndex = headers.findIndex((header) => TOTAL_PRICE_HEADERS.includes(header));
+
+  const headers = rows[headerIndex].map((cell) => headerKey(cell));
+  const descriptionIndex = findAlias(headers, DESCRIPTION_HEADERS);
+  const unitIndex = findAlias(headers, UNIT_HEADERS);
+  const quantityIndex = findAlias(headers, QUANTITY_HEADERS);
+  const unitPriceIndex = findAlias(headers, UNIT_PRICE_HEADERS);
+  const totalPriceIndex = findAlias(headers, TOTAL_PRICE_HEADERS);
+  const dataRows = rows.slice(headerIndex + 1);
+  const numberIndex = findNumberColumn(headers, descriptionIndex, dataRows);
   const known = new Set(
-    [descriptionIndex, unitIndex, quantityIndex, unitPriceIndex, totalPriceIndex].filter(
+    [descriptionIndex, unitIndex, quantityIndex, unitPriceIndex, totalPriceIndex, numberIndex].filter(
       (index) => index >= 0,
     ),
   );
   const hospitalColumns = headers
     .map((header, index) => ({ header, index, original: rows[headerIndex][index]?.trim() ?? '' }))
-    .filter((column) => column.header && column.original && !known.has(column.index));
+    .filter(
+      (column) =>
+        column.header &&
+        column.original &&
+        !known.has(column.index) &&
+        !IGNORED_HEADERS.includes(column.header),
+    );
 
   const items: ImportedItem[] = [];
-  for (const row of rows.slice(headerIndex + 1)) {
+  for (const row of dataRows) {
     const description = (row[descriptionIndex] ?? '').trim();
-    if (!description) continue;
+    if (!description || DESCRIPTION_HEADERS.includes(headerKey(description))) continue;
+    const itemNumber = numberIndex >= 0 ? parseItemNumber(row[numberIndex] ?? '') : null;
     const hospitalQuantities = hospitalColumns
       .map((column) => {
         const quantity = parseLocaleNumber(row[column.index] ?? '');
@@ -158,6 +274,7 @@ function rowsToItems(rows: string[][]): ImportedItem[] {
       quantityIndex >= 0 ? parseLocaleNumber(row[quantityIndex] ?? '') : null;
 
     items.push({
+      itemNumber,
       description,
       unit: (unitIndex >= 0 ? row[unitIndex] : '')?.trim() || 'KG',
       estimatedQuantity:
@@ -168,8 +285,76 @@ function rowsToItems(rows: string[][]): ImportedItem[] {
     });
   }
 
-  if (!items.length) throw new BadRequestException('Nenhum item encontrado na planilha');
-  return items;
+  const unique = collapseRepeatedItems(items);
+  if (!unique.length) throw new BadRequestException('Nenhum item encontrado na planilha');
+  return unique;
+}
+
+/**
+ * A planilha exportada repete o item, uma linha por cooperativa, com o nº mesclado.
+ * Essas linhas são o mesmo item do edital.
+ */
+function collapseRepeatedItems(items: ImportedItem[]): ImportedItem[] {
+  const unique: ImportedItem[] = [];
+  const byNumber = new Map<number, ImportedItem>();
+  for (const item of items) {
+    if (item.itemNumber == null) {
+      unique.push(item);
+      continue;
+    }
+    const existing = byNumber.get(item.itemNumber);
+    if (!existing) {
+      byNumber.set(item.itemNumber, item);
+      unique.push(item);
+      continue;
+    }
+    if (existing.estimatedQuantity == null && item.estimatedQuantity != null) {
+      existing.estimatedQuantity = item.estimatedQuantity;
+    }
+    if (existing.unitPrice == null && item.unitPrice != null) existing.unitPrice = item.unitPrice;
+    if (existing.totalPrice == null && item.totalPrice != null) existing.totalPrice = item.totalPrice;
+    for (const quantity of item.hospitalQuantities) {
+      const already = existing.hospitalQuantities.some(
+        (current) => headerKey(current.hospitalUnitName) === headerKey(quantity.hospitalUnitName),
+      );
+      if (!already) existing.hospitalQuantities.push(quantity);
+    }
+  }
+  return unique;
+}
+
+function findAlias(headers: string[], aliases: string[]): number {
+  for (const alias of aliases) {
+    const index = headers.indexOf(alias);
+    if (index >= 0) return index;
+  }
+  return -1;
+}
+
+/** Número do item pelo cabeçalho, pela coluna "Item" ou pela coluna sem título antes da descrição. */
+function findNumberColumn(headers: string[], descriptionIndex: number, rows: string[][]): number {
+  const byHeader = headers.findIndex(
+    (header, index) => index !== descriptionIndex && NUMBER_HEADERS.includes(header),
+  );
+  if (byHeader >= 0) return byHeader;
+  const namedItem = headers.findIndex((header, index) => header === 'item' && index !== descriptionIndex);
+  if (namedItem >= 0 && columnLooksLikeNumbers(rows, descriptionIndex, namedItem)) return namedItem;
+  const candidate = descriptionIndex - 1;
+  if (candidate < 0 || headers[candidate] !== '') return -1;
+  return columnLooksLikeNumbers(rows, descriptionIndex, candidate) ? candidate : -1;
+}
+
+function columnLooksLikeNumbers(rows: string[][], descriptionIndex: number, column: number): boolean {
+  const samples = rows
+    .filter((row) => (row[descriptionIndex] ?? '').trim())
+    .map((row) => (row[column] ?? '').trim())
+    .filter(Boolean);
+  return samples.length > 0 && samples.every((value) => parseItemNumber(value) !== null);
+}
+
+function parseItemNumber(raw: string): number | null {
+  const value = parseLocaleNumber(raw);
+  return value !== null && Number.isInteger(value) && value > 0 ? value : null;
 }
 
 function headerKey(value: string): string {

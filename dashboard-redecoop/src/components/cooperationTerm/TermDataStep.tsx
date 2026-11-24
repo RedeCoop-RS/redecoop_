@@ -1,13 +1,14 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
-import { Select } from '@/components/ui/Select'
+import { ModelSelect } from '@/components/cooperationTerm/ModelSelect'
+import { TermImportModal } from '@/components/cooperationTerm/TermImportModal'
 import { ApiError } from '@/lib/api'
 import { cooperationTermService } from '@/services/cooperationTerm.service'
-import type { CooperationTermDetail, CooperationTermItem, CooperationTermModel } from '@/types/cooperationTerm'
+import type { CooperationTermDetail, CooperationTermItem } from '@/types/cooperationTerm'
 import { formatMoney, formatQty, parseQty } from './format'
 import { useModal } from '@/contexts/ModalContext'
 
@@ -18,6 +19,7 @@ interface TermDataStepProps {
 
 interface ItemDraft {
   id?: number
+  itemNumber: string
   description: string
   unit: string
   quantity: string
@@ -25,7 +27,8 @@ interface ItemDraft {
   hospitals: Record<number, string>
 }
 
-const emptyItem = (units: { id: number }[]): ItemDraft => ({
+const emptyItem = (units: { id: number }[], nextNumber: number): ItemDraft => ({
+  itemNumber: String(nextNumber),
   description: '',
   unit: 'KG',
   quantity: '',
@@ -35,7 +38,7 @@ const emptyItem = (units: { id: number }[]): ItemDraft => ({
 
 export function TermDataStep({ term, onChange }: TermDataStepProps) {
   const { confirm } = useModal()
-  const fileRef = useRef<HTMLInputElement>(null)
+  const [importOpen, setImportOpen] = useState(false)
   const [header, setHeader] = useState({
     name: term.name,
     processNumber: term.processNumber,
@@ -48,7 +51,6 @@ export function TermDataStep({ term, onChange }: TermDataStepProps) {
   )
   const [savingHeader, setSavingHeader] = useState(false)
   const [savingUnits, setSavingUnits] = useState(false)
-  const [replaceImport, setReplaceImport] = useState(false)
   const [itemDraft, setItemDraft] = useState<ItemDraft | null>(null)
   const [savingItem, setSavingItem] = useState(false)
 
@@ -90,7 +92,8 @@ export function TermDataStep({ term, onChange }: TermDataStepProps) {
 
   const openItem = (item?: CooperationTermItem) => {
     if (!item) {
-      setItemDraft(emptyItem(term.hospitalUnits))
+      const nextNumber = term.items.reduce((max, current) => Math.max(max, current.itemNumber), 0) + 1
+      setItemDraft(emptyItem(term.hospitalUnits, nextNumber))
       return
     }
     const hospitals: Record<number, string> = {}
@@ -100,6 +103,7 @@ export function TermDataStep({ term, onChange }: TermDataStepProps) {
     })
     setItemDraft({
       id: item.id,
+      itemNumber: String(item.itemNumber),
       description: item.description,
       unit: item.unit,
       quantity: String(item.estimatedQuantity).replace('.', ','),
@@ -114,6 +118,11 @@ export function TermDataStep({ term, onChange }: TermDataStepProps) {
     const unit = itemDraft.unit.trim()
     if (!description || !unit) {
       toast.error('Informe a descrição e a unidade.')
+      return
+    }
+    const itemNumber = Number(itemDraft.itemNumber.trim())
+    if (!Number.isInteger(itemNumber) || itemNumber < 1) {
+      toast.error('Informe o número do item no edital (1, 2, 3...).')
       return
     }
     const hospitalQuantities = term.model === 'GHC'
@@ -139,6 +148,7 @@ export function TermDataStep({ term, onChange }: TermDataStepProps) {
     setSavingItem(true)
     try {
       const payload = {
+        itemNumber,
         description,
         unit,
         estimatedQuantity: estimated ?? undefined,
@@ -174,16 +184,6 @@ export function TermDataStep({ term, onChange }: TermDataStepProps) {
     }
   }
 
-  const importFile = async (file: File) => {
-    try {
-      const updated = await cooperationTermService.importItems(term.id, file, replaceImport)
-      onChange(updated)
-      toast.success('Planilha importada.')
-    } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : 'Não foi possível importar a planilha.')
-    }
-  }
-
   const hospitalSum = itemDraft
     ? term.hospitalUnits.reduce((sum, unit) => sum + (parseQty(itemDraft.hospitals[unit.id] ?? '') ?? 0), 0)
     : 0
@@ -197,15 +197,7 @@ export function TermDataStep({ term, onChange }: TermDataStepProps) {
             <Input label="Número do processo" value={header.processNumber} onChange={(event) => setHeader({ ...header, processNumber: event.target.value })} />
             <Input label="Instituição compradora" value={header.buyerInstitution} onChange={(event) => setHeader({ ...header, buyerInstitution: event.target.value })} />
             <Input label="E-mail da instituição" type="email" value={header.buyerEmail} onChange={(event) => setHeader({ ...header, buyerEmail: event.target.value })} />
-            <Select
-              label="Modelo"
-              value={header.model}
-              onChange={(event) => setHeader({ ...header, model: event.target.value as CooperationTermModel })}
-              options={[
-                { value: 'GHC', label: 'GHC — quantidade por unidade hospitalar' },
-                { value: 'STANDARD', label: 'Padrão — quantidade, valor unitário e valor total' },
-              ]}
-            />
+            <ModelSelect value={header.model} onChange={(model) => setHeader({ ...header, model })} />
           </div>
           <div className="flex justify-end">
             <Button onClick={saveHeader} disabled={savingHeader}>Salvar dados</Button>
@@ -257,12 +249,11 @@ export function TermDataStep({ term, onChange }: TermDataStepProps) {
           <div>
             <p className="font-semibold text-ink">Itens</p>
             <p className="text-sm text-grey-dark">
-              Cadastre manualmente ou importe CSV/Excel com as colunas descrição, unidade, quantidade e, no modelo padrão, valor unitário.
-              No GHC, colunas extras viram unidades hospitalares.
+              Cadastre um item ou importe a planilha do edital. O número da planilha é mantido.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => fileRef.current?.click()}>
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
               <Upload size={16} /> Importar planilha
             </Button>
             <Button onClick={() => openItem()}>
@@ -270,22 +261,7 @@ export function TermDataStep({ term, onChange }: TermDataStepProps) {
             </Button>
           </div>
         </div>
-        <div className="panel-card__body space-y-3">
-          <label className="flex items-center gap-2 text-sm text-grey-dark">
-            <input type="checkbox" checked={replaceImport} onChange={(event) => setReplaceImport(event.target.checked)} />
-            Substituir os itens atuais na importação
-          </label>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            className="hidden"
-            onChange={(event) => {
-              const file = event.target.files?.[0]
-              event.target.value = ''
-              if (file) void importFile(file)
-            }}
-          />
+        <div className="panel-card__body">
           <div className="overflow-x-auto">
             <table className="data-table">
               <thead>
@@ -305,9 +281,9 @@ export function TermDataStep({ term, onChange }: TermDataStepProps) {
                     <td colSpan={term.model === 'STANDARD' ? 7 : 5} className="text-grey-dark">Nenhum item ainda.</td>
                   </tr>
                 )}
-                {term.items.map((item, index) => (
+                {term.items.map((item) => (
                   <tr key={item.id}>
-                    <td>{index + 1}</td>
+                    <td>{item.itemNumber}</td>
                     <td>
                       <p>{item.description}</p>
                       {term.model === 'GHC' && item.hospitalQuantities.length > 0 && (
@@ -341,10 +317,22 @@ export function TermDataStep({ term, onChange }: TermDataStepProps) {
         </div>
       </section>
 
+      <TermImportModal
+        open={importOpen}
+        termId={term.id}
+        model={term.model}
+        existingCount={term.items.length}
+        onClose={() => setImportOpen(false)}
+        onImported={onChange}
+      />
+
       <Modal open={itemDraft !== null} onClose={() => setItemDraft(null)} title={itemDraft?.id ? 'Editar item' : 'Novo item'} size="lg">
         {itemDraft && (
           <div className="space-y-4">
-            <Input label="Descrição" value={itemDraft.description} onChange={(event) => setItemDraft({ ...itemDraft, description: event.target.value })} />
+            <div className="grid gap-4 sm:grid-cols-[8rem_1fr]">
+              <Input label="Nº no edital" inputMode="numeric" value={itemDraft.itemNumber} onChange={(event) => setItemDraft({ ...itemDraft, itemNumber: event.target.value })} />
+              <Input label="Descrição" value={itemDraft.description} onChange={(event) => setItemDraft({ ...itemDraft, description: event.target.value })} />
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Input label="Unidade" value={itemDraft.unit} onChange={(event) => setItemDraft({ ...itemDraft, unit: event.target.value })} />
               {term.model === 'STANDARD' && (

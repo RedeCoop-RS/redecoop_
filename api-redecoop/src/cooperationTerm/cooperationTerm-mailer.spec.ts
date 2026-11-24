@@ -20,6 +20,9 @@ describe('CooperationTermMailer', () => {
       attachments: [],
     });
     expect(result.sent).toBe(false);
+    expect(result.results).toEqual([
+      expect.objectContaining({ email: 'coop@example.com', sent: false }),
+    ]);
     expect(email.sendEmail).not.toHaveBeenCalled();
   });
 
@@ -36,5 +39,22 @@ describe('CooperationTermMailer', () => {
     expect(email.sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({ to: 'coop@example.com', subject: 'Termo' }),
     );
+    expect(result.results[0]).toMatchObject({ email: 'coop@example.com', sent: true });
+  });
+
+  it('segue para o próximo destinatário quando um envio falha', async () => {
+    process.env.SMTP_HOST = 'smtp.invalid';
+    email.sendEmail.mockRejectedValueOnce(new Error('Falha ao enviar e-mail')).mockResolvedValueOnce(undefined);
+    const result = await mailer.dispatch({
+      recipients: [
+        { email: 'a@example.com', name: 'A', kind: 'cooperative' },
+        { email: 'b@example.com', name: 'B', kind: 'cooperative' },
+      ],
+      subject: 'Termo',
+      html: '<p>Termo</p>',
+      attachments: [],
+    });
+    expect(result.sent).toBe(false);
+    expect(result.results.map((item) => item.sent)).toEqual([false, true]);
   });
 });

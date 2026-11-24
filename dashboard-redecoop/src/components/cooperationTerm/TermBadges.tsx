@@ -1,12 +1,12 @@
+import { Layers, PenLine, ShieldCheck } from 'lucide-react'
 import type { CooperationTermModel, CooperationTermStatus } from '@/types/cooperationTerm'
 import { modelLabel, statusLabel } from './format'
 
 export function StatusBadge({ status }: { status: CooperationTermStatus }) {
   const signed = status === 'SIGNED'
   return (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${signed ? 'bg-green-soft text-green-dark' : 'bg-yellow-soft text-ink'}`}
-    >
+    <span className={`term-pill ${signed ? 'term-pill--signed' : 'term-pill--draft'}`}>
+      {signed ? <ShieldCheck size={13} /> : <PenLine size={13} />}
       {statusLabel(status)}
     </span>
   )
@@ -14,7 +14,8 @@ export function StatusBadge({ status }: { status: CooperationTermStatus }) {
 
 export function ModelBadge({ model }: { model: CooperationTermModel }) {
   return (
-    <span className="inline-flex rounded-full bg-white px-2.5 py-0.5 text-xs font-medium text-grey-dark ring-1 ring-gray-200">
+    <span className="term-pill term-pill--neutral">
+      <Layers size={13} />
       {modelLabel(model)}
     </span>
   )

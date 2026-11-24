@@ -26,6 +26,16 @@ export class MailboxSyncService implements OnModuleInit, OnModuleDestroy {
     this.unsubscribe = onMailboxAccountChanged(() => this.restartIdle());
     this.timer = setInterval(() => void this.mailbox.syncQuiet(false), 15000);
     this.scheduler = setInterval(() => void this.dispatchScheduled(), 2000);
+    void this.start();
+  }
+
+  private async start() {
+    try {
+      await this.mailbox.ensureEnvAccount();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Conta da caixa: ${message.slice(0, 180)}`);
+    }
     void this.mailbox.syncQuiet(false);
     void this.idleLoop();
   }
